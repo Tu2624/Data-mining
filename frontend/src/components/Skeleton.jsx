@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 const Skeleton = ({ className }) => (
   <div className={`bg-gray-200 animate-pulse rounded-xl ${className}`}></div>

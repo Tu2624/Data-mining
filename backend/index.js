@@ -25,27 +25,17 @@ app.use(cors({
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Logger middleware để track request
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-});
 
 // Database connection pool
 const pool = require('./config/db');
 
 // Socket.io connection
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-    
     socket.on('join_room', (userId) => {
         socket.join(`user_${userId}`);
-        console.log(`User ${userId} joined their room`);
     });
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
-    });
+    socket.on('disconnect', () => {});
 });
 
 // App-wide instance of IO

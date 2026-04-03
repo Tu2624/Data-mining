@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
 
 const HashtagText = ({ text }) => {
   if (!text) return null;
@@ -10,7 +10,7 @@ const HashtagText = ({ text }) => {
   return (
     <span className="whitespace-pre-wrap break-words leading-relaxed text-[15px] text-gray-800">
       {parts.map((part, index) => {
-        if (part.startsWith('#') && part.length > 1) {
+        if (part.startsWith("#") && part.length > 1) {
           const tagName = part.substring(1).toLowerCase();
           return (
             <Link
