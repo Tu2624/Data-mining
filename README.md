@@ -4,144 +4,81 @@
 [![React Version](https://img.shields.io/badge/react-18.x-blue)](https://reactjs.org/)
 [![Database](https://img.shields.io/badge/database-MySQL-orange)](https://www.mysql.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/maintained%3F-yes-brightgreen.svg)](https://github.com/your-username/foodrec-ai/graphs/commit-activity)
 
-> **FoodRec AI** is a state-of-the-art full-stack web application designed for the **Data Mining** course. It leverages advanced recommendation algorithms to solve the "What should I eat today?" dilemma by analyzing personal user interactions.
-
----
-
-### 🇻🇳 Tóm tắt (Vietnamese Summary)
-
-**FoodRec AI** là nền tảng web hiện đại tích hợp trí tuệ nhân tạo để cá nhân hóa gợi ý ẩm thực. Dự án được phát triển cho môn học **Khai phá dữ liệu**, sử dụng các mô hình lọc cộng tác (Collaborative Filtering) và lọc dựa trên nội dung (Content-based Filtering) để phân tích hành vi người dùng (Like, View, Rating) và đưa ra các đề xuất món ăn thông minh nhất.
+> **FoodRec AI** là nền tảng web hiện đại tích hợp trí tuệ nhân tạo để cá nhân hóa gợi ý ẩm thực. Dự án được phát triển cho môn học **Khai phá dữ liệu**, sử dụng các mô hình lọc cộng tác (Collaborative Filtering) và lọc dựa trên nội dung (Content-based Filtering) để phân tích hành vi người dùng.
 
 ---
 
-## 🌟 Key Features
+## 📚 Tài liệu chi tiết (Detailed Documentation)
 
-### 👤 User Experience
-- **Personalized Discovery**: A smart "For You" feed powered by our recommendation engine.
-- **Advanced Search**: Filter dishes by Price Range, Categories, and Locations.
-- **Social Interaction**: Rate (1-5 stars), Like, Comment, and Save dishes to your Favorites.
-- **Real-time Notifications**: Instant updates on new dishes or admin announcements via Socket.io.
-- **Premium UI**: Minimalist Glassmorphism design with smooth Framer Motion animations.
+Để hiểu rõ hơn về hệ thống, vui lòng tham khảo các tài liệu chuyên sâu sau đây:
 
-### 🛡️ Admin Management
-- **Dashboard**: Full CRUD operations for dishes, categories, and tags.
-- **Announcement System**: Broadcast real-time notifications to all active users.
-- **Data Insights**: (Upcoming) Visual analytics for user preferences.
+1.  **[Kiến trúc Hệ thống (Architecture)](./docs/SYSTEM_ARCHITECTURE.md)**: Tổng quan về Tech Stack và luồng dữ liệu.
+2.  **[Hướng dẫn Cơ sở Dữ liệu (Database)](./docs/DATABASE_GUIDE.md)**: Sơ đồ ERD và cấu trúc bảng chi tiết.
+3.  **[Tài liệu API (API Reference)](./docs/API_REFERENCE.md)**: Danh sách các endpoint và cách tương tác.
+4.  **[Thuật toán Gợi ý (AI Logic)](./docs/AI_RECOMMENDATION_LOGIC.md)**: Giải thích chi tiết về Cosine Similarity và mô hình lai.
 
 ---
 
-## 🧠 Data Mining Core & AI Logic
+## 🌟 Tính năng Nổi bật
 
-The heart of FoodRec AI lies in its **Hybrid Recommendation System**, combining two primary data mining strategies:
+### 👤 Trải nghiệm Người dùng
+- **Trang chủ Cá nhân hóa**: Gợi ý "Dành cho bạn" dựa trên thuật toán AI.
+- **Tìm kiếm Thông minh**: Lọc món ăn theo Giá, Danh mục và Địa điểm.
+- **Tương tác Xã hội**: Đánh giá (Rating), Thích (Like), Lưu (Favorite) và Bình luận.
+- **Thông báo Thời gian thực**: Cập nhật tức thời qua Socket.io.
 
-### 1. Collaborative Filtering (User-Based)
-Our system identifies similarities between users based on their interaction patterns. We utilize a **Multi-Interaction Scoring Model**:
-- **Rating**: 5 Points (Explicit intent)
-- **Favorite**: 3 Points (Strong interest)
-- **Like**: 2 Points (Endorsement)
-- **View**: 1 Point (Implicit interest)
-
-**Algorithm**: [Cosine Similarity](https://en.wikipedia.org/wiki/Cosine_similarity)
-We represent users as vectors in an $N$-dimensional space (where $N$ is the number of dishes) and calculate the angle between vectors to find users with similar "culinary tastes."
-
-### 2. Content-Based Filtering
-This module focuses on the metadata of the dishes. It recommends items similar to what a user is currently viewing by analyzing:
-- **Category matching**: Primary filtering based on dish types.
-- **Tag overlap**: Analyzing shared attributes (e.g., "Spicy", "Healthy", "Vegan").
-
-### 3. Hybrid Strategy
-Results from both engines are fused and cached in the `recommendations_cache` table to ensure **Low Latency** (sub-50ms response times) for the end-user.
+### 🛡️ Quản lý Admin
+- **Dashboard**: CRUD món ăn, danh mục và thẻ (Tags).
+- **Hệ thống Thông báo**: Gửi tin nhắn đến toàn bộ người dùng ngay lập tức.
+- **Phân tích Dữ liệu**: (Sắp tới) Biểu đồ xu hướng người dùng.
 
 ---
 
-## 🚀 Technology Stack
+## 🚀 Công nghệ Sử dụng
 
-| Layer | Technologies |
+| Tầng | Công nghệ |
 | :--- | :--- |
 | **Frontend** | React 18, Vite, Tailwind CSS, Framer Motion, Zustand |
 | **Backend** | Node.js, Express, Socket.io, JWT Authentication |
-| **Database** | MySQL (with optimized indexing for high-speed queries) |
+| **Database** | MySQL (Tối ưu hóa Indexing cho truy vấn nhanh) |
 | **Tools** | Axios, Lucide Icons, MySQL2 |
 
 ---
 
-## 📸 Screenshots (Coming Soon)
-*Placeholders for your amazing project UI:*
-- **Hero Section**: `![Hero](/docs/screenshots/hero.png)`
-- **AI Recommendation Rail**: `![Recs](/docs/screenshots/recs.png)`
-- **Food Detail Page**: `![Detail](/docs/screenshots/detail.png)`
+## 🛠 Cài đặt & Triển khai
+
+### 1. Thiết lập Database
+1. Tạo MySQL database: `foodrec_ai`.
+2. Import schema từ `database/schema.sql`.
+3. (Tùy chọn) Chạy Seeder để tạo dữ liệu mẫu: `node database/seeder.js`
+
+### 2. Cấu hình Backend
+1. Vào thư mục `/backend`.
+2. Tạo tệp `.env` với các thông số: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `PORT`.
+3. Chạy lệnh: `npm install` và `npm run dev`.
+
+### 3. Cấu hình Frontend
+1. Vào thư mục `/frontend`.
+2. Chạy lệnh: `npm install` và `npm run dev`.
 
 ---
 
-## 🛠 Installation & Setup
-
-### Prerequisites
-- Node.js (v16.x or higher)
-- MySQL Server (v8.0 or higher)
-- npm or yarn
-
-### 1. Database Setup
-1. Create a new MySQL database named `foodrec_ai`.
-2. Import the schema found in `database/schema.sql`.
-3. (Optional) Run the seeder to populate test data:
-   ```bash
-   node database/seeder.js
-   ```
-
-### 2. Backend Configuration
-1. Navigate to `/backend`.
-2. Create a `.env` file based on calculations:
-   ```env
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=your_password
-   DB_NAME=foodrec_ai
-   JWT_SECRET=your_jwt_secret
-   PORT=5000
-   ```
-3. Install dependencies and start server:
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-### 3. Frontend Configuration
-1. Navigate to `/frontend`.
-2. Install dependencies and start development server:
-   ```bash
-   npm install
-   npm run dev
-   ```
-
----
-
-## 📂 Project Structure
+## 📂 Cấu trúc Thư mục
 
 ```text
-├── backend/            # Express.js Server
-│   ├── config/         # Database & App configurations
-│   ├── controllers/    # Request handlers
-│   ├── middleware/     # Auth & Error handling
-│   ├── routes/         # API endpoints
-│   └── services/       # Recommendation Logic (AI Core)
-├── frontend/           # React App (Vite)
-│   ├── src/
-│   │   ├── components/ # Reusable UI components
-│   │   ├── pages/      # View components
-│   │   └── store/      # State management (Zustand)
-├── database/           # SQL scripts & Seeders
-└── README.md           # Documentation
+├── backend/            # Express.js Server & Logic AI
+├── frontend/           # React Frontend (Vite)
+├── database/           # SQL Scripts & Seeders
+├── docs/               # Tài liệu chi tiết dự án (Mới)
+└── README.md           # Trang tổng quan
 ```
-
----
 
 ## 📝 License & Authors
 
-- **Developed for**: Data Mining Course (Khai phá dữ liệu)
-- **Academic Year**: 2026
-- **License**: Distributed under the MIT License. See `LICENSE` for more information.
+- **Môn học**: Khai phá dữ liệu (Data Mining)
+- **Năm học**: 2026
+- **Bản quyền**: MIT License.
 
 ---
-*If you find this project helpful, give it a ⭐ on GitHub!*
+*Nếu bạn thấy dự án hữu ích, hãy tặng 1 ⭐ trên GitHub!*
