@@ -14,10 +14,11 @@ const Home = () => {
   const [recoLoading, setRecoLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
   useEffect(() => {
     fetchData();
-  }, [selectedCategory]);
+  }, [selectedCategory, sortBy]);
 
   useEffect(() => {
     if (user) fetchRecommendations();
@@ -28,7 +29,8 @@ const Home = () => {
     try {
       const params = {
         ...(selectedCategory && { categoryId: selectedCategory }),
-        ...(search && { q: search })
+        ...(search && { q: search }),
+        sort: sortBy
       };
       
       const resPosts = await client.get('/posts', { params });
@@ -144,8 +146,18 @@ const Home = () => {
             Tất cả món ăn
           </h2>
           <div className="flex bg-white p-1 rounded-xl shadow-soft">
-             <button className="px-4 py-2 text-sm font-bold bg-primary-500 text-white rounded-lg">Mới nhất</button>
-             <button className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-primary-500 transition">Phổ biến</button>
+            <button
+              onClick={() => setSortBy('newest')}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition ${sortBy === 'newest' ? 'bg-primary-500 text-white' : 'text-gray-500 hover:text-primary-500'}`}
+            >
+              Mới nhất
+            </button>
+            <button
+              onClick={() => setSortBy('popular')}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition ${sortBy === 'popular' ? 'bg-primary-500 text-white' : 'text-gray-500 hover:text-primary-500'}`}
+            >
+              Phổ biến
+            </button>
           </div>
         </div>
 

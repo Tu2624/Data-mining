@@ -1,4 +1,6 @@
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Utensils, User, Mail, Lock, LogIn } from 'lucide-react';
 import client from '../api/client';
 import useStore from '../store/useStore';
 

@@ -17,9 +17,16 @@ const useStore = create((set) => ({
     set({ user: null, token: null });
   },
 
-  addNotification: (notification) => 
-    set((state) => ({ 
-      notifications: [notification, ...state.notifications] 
+  addNotification: (notification) =>
+    set((state) => ({
+      notifications: [notification, ...state.notifications]
+    })),
+
+  setNotifications: (notifications) => set({ notifications }),
+
+  markAllRead: () =>
+    set((state) => ({
+      notifications: state.notifications.map(n => ({ ...n, is_read: true }))
     })),
 
   clearNotifications: () => set({ notifications: [] }),

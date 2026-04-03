@@ -1,20 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlusCircle, Image, MapPin, Tag, DollarSign, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import client from '../api/client';
 import useStore from '../store/useStore';
 
 const Admin = () => {
     const { user } = useStore();
+    const [categories, setCategories] = useState([]);
     const [form, setForm] = useState({
         title: '',
         description: '',
         price: '',
         location: 'Hà Nội, Việt Nam',
-        categoryId: 1,
+        categoryId: '',
         imageUrl: '',
         tags: []
     });
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        client.get('/categories').then(res => {
+            setCategories(res.data);
+            if (res.data.length > 0) {
+                setForm(prev => ({ ...prev, categoryId: res.data[0].id }));
+            }
+        }).catch(() => {});
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -27,7 +37,7 @@ const Admin = () => {
                 description: '',
                 price: '',
                 location: 'Hà Nội, Việt Nam',
-                categoryId: 1,
+                categoryId: categories.length > 0 ? categories[0].id : '',
                 imageUrl: '',
                 tags: []
             });
@@ -102,15 +112,14 @@ const Admin = () => {
                         </div>
                         <div className="space-y-2">
                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Danh mục</label>
-                           <select 
+                           <select
                                 value={form.categoryId}
                                 onChange={(e) => setForm({...form, categoryId: e.target.value})}
                                 className="w-full bg-gray-50 rounded-2xl px-4 py-4 border-2 border-transparent focus:border-primary-500 outline-none font-bold"
                            >
-                                <option value={1}>Phở</option>
-                                <option value={2}>Bún chả</option>
-                                <option value={3}>Cơm tấm</option>
-                                <option value={4}>Bánh mì</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
                            </select>
                         </div>
                     </div>
@@ -158,7 +167,7 @@ const Admin = () => {
                     <button 
                         type="submit" 
                         disabled={loading}
-                        className="w-full bg-primary-500 text-white flex items-center justify-center gap-3 py-5 rounded-[2xl] font-black text-xl shadow-premium hover:shadow-none hover:translate-y-1 transition-all disabled:opacity-50"
+                        className="w-full bg-primary-500 text-white flex items-center justify-center gap-3 py-5 rounded-2xl font-black text-xl shadow-premium hover:shadow-none hover:translate-y-1 transition-all disabled:opacity-50"
                     >
                         <Send size={24} /> {loading ? 'Đang gửi...' : 'Đăng bài & Gửi thông báo'}
                     </button>

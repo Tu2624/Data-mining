@@ -132,6 +132,20 @@ CREATE TABLE IF NOT EXISTS recommendations_cache (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 15. Thêm Indexes (Sử dụng lệnh riêng để tránh lỗi nếu Index đã tồn tại)
--- Lưu ý: Một số bản MySQL yêu cầu kiểm tra sự tồn tại của Index trước khi tạo.
--- Ở đây chúng ta tạm thời bỏ qua phần CREATE INDEX lặp lại hoặc dùng cấu trúc CREATE TABLE ở trên.
+-- 15. Bảng Follows (Hệ thống theo dõi - Social Media)
+CREATE TABLE IF NOT EXISTS follows (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    follower_id INT NOT NULL COMMENT 'Người đang theo dõi',
+    following_id INT NOT NULL COMMENT 'Người được theo dõi',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_follow (follower_id, following_id),
+    FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (follower_id != following_id)
+);
+
+-- 16. Indexes để tăng tốc độ truy vấn
+CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);

@@ -12,15 +12,25 @@ router.post('/auth/login', AuthController.login);
 
 // Posts Routes
 router.get('/posts', PostsController.getAll);
-router.get('/posts/:id', authMiddleware, PostsController.getDetail);
+router.get('/posts/:id', PostsController.getDetail);
 router.post('/interact', authMiddleware, PostsController.interact);
 router.get('/recommendations', authMiddleware, PostsController.getRecommendations);
 router.get('/history', authMiddleware, PostsController.getHistory);
 router.get('/categories', PostsController.getCategories);
 router.get('/tags', PostsController.getTags);
 
+// Favorites & Notifications
+router.get('/favorites', authMiddleware, PostsController.getFavorites);
+router.get('/notifications', authMiddleware, PostsController.getNotifications);
+router.patch('/notifications/read', authMiddleware, PostsController.markNotificationsRead);
+
+// Comments
+router.get('/posts/:id/comments', PostsController.getComments);
+router.post('/posts/:id/comments', authMiddleware, PostsController.postComment);
+
 // Admin Routes
 router.post('/admin/posts', authMiddleware, adminOnly, AdminController.createPost);
 router.delete('/admin/posts/:id', authMiddleware, adminOnly, AdminController.deletePost);
+router.put('/admin/posts/:id', authMiddleware, adminOnly, AdminController.updatePost);
 
 module.exports = router;

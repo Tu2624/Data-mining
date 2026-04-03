@@ -12,7 +12,8 @@ class PostsController {
                     p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
                     MIN(m.url) as image_url, 
                     MIN(c.name) as category_name, 
-                    COALESCE(AVG(r.score), 0) as avg_rating
+                    COALESCE(AVG(r.score), 0) as avg_rating,
+                    COUNT(r.score) as rating_count
                 FROM posts p
                 LEFT JOIN media m ON p.id = m.post_id
                 LEFT JOIN categories c ON p.category_id = c.id
@@ -38,7 +39,12 @@ class PostsController {
                 params.push(`%${q}%`);
             }
 
-            query += ' GROUP BY p.id ORDER BY p.created_at DESC';
+            query += ' GROUP BY p.id';
+            if (req.query.sort === 'popular') {
+                query += ' ORDER BY avg_rating DESC, rating_count DESC';
+            } else {
+                query += ' ORDER BY p.created_at DESC';
+            }
             
             const [posts] = await pool.query(query, params);
             res.json(posts);
@@ -170,6 +176,111 @@ class PostsController {
         try {
             const [tags] = await pool.query('SELECT * FROM tags');
             res.json(tags);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async getFavorites(req, res) {
+        const userId = req.userId;
+        try {
+            const [favorites] = await pool.query(`
+                SELECT p.id, p.title, p.description, p.price, p.location, p.created_at,
+                       MIN(m.url) as image_url,
+                       MIN(c.name) as category_name,
+                       COALESCE(AVG(r.score), 0) as avg_rating
+                FROM favorites f
+                JOIN posts p ON f.post_id = p.id
+                LEFT JOIN media m ON p.id = m.post_id
+                LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN ratings r ON p.id = r.post_id
+                WHERE f.user_id = ?
+                GROUP BY p.id
+                ORDER BY f.created_at DESC
+            `, [userId]);
+            res.json(favorites);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async getNotifications(req, res) {
+        const userId = req.userId;
+        const limit = parseInt(req.query.limit) || 20;
+        try {
+            const [notifications] = await pool.query(
+                'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
+                [userId, limit]
+            );
+            res.json(notifications);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async markNotificationsRead(req, res) {
+        const userId = req.userId;
+        try {
+            await pool.query(
+                'UPDATE notifications SET is_read = TRUE WHERE user_id = ?',
+                [userId]
+            );
+            res.json({ message: 'All notifications marked as read' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async getComments(req, res) {
+        const postId = req.params.id;
+        try {
+            const [comments] = await pool.query(`
+                SELECT c.id, c.content, c.created_at,
+                       u.id as user_id, u.username, u.avatar_url
+                FROM comments c
+                JOIN users u ON c.user_id = u.id
+                WHERE c.post_id = ?
+                ORDER BY c.created_at ASC
+            `, [postId]);
+            res.json(comments);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async postComment(req, res) {
+        const postId = req.params.id;
+        const userId = req.userId;
+        const { content } = req.body;
+        if (!content || !content.trim()) {
+            return res.status(400).json({ error: 'Nội dung bình luận không được để trống' });
+        }
+        try {
+            const [result] = await pool.query(
+                'INSERT INTO comments (user_id, post_id, content) VALUES (?, ?, ?)',
+                [userId, postId, content.trim()]
+            );
+
+            // Gửi thông báo cho chủ bài (không gửi nếu tự comment bài mình)
+            const [[postRow]] = await pool.query('SELECT user_id, title FROM posts WHERE id = ?', [postId]);
+            if (postRow && postRow.user_id !== userId) {
+                const [[commenter]] = await pool.query('SELECT username FROM users WHERE id = ?', [userId]);
+                const io = req.app.get('io');
+                await NotificationService.notifyUser(
+                    io,
+                    postRow.user_id,
+                    'new_comment',
+                    `${commenter.username} đã bình luận về "${postRow.title}"`
+                );
+            }
+
+            res.status(201).json({
+                id: result.insertId,
+                content: content.trim(),
+                user_id: userId,
+                post_id: parseInt(postId),
+                created_at: new Date()
+            });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

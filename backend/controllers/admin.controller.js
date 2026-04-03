@@ -40,6 +40,37 @@ class AdminController {
             res.status(500).json({ error: error.message });
         }
     }
+
+    static async updatePost(req, res) {
+        const postId = req.params.id;
+        const { title, description, price, location, categoryId, imageUrl, tags } = req.body;
+        try {
+            await pool.query(
+                'UPDATE posts SET title = ?, description = ?, price = ?, location = ?, category_id = ? WHERE id = ?',
+                [title, description, price, location, categoryId, postId]
+            );
+
+            if (imageUrl !== undefined) {
+                await pool.query('DELETE FROM media WHERE post_id = ?', [postId]);
+                if (imageUrl) {
+                    await pool.query('INSERT INTO media (post_id, url) VALUES (?, ?)', [postId, imageUrl]);
+                }
+            }
+
+            if (tags !== undefined) {
+                await pool.query('DELETE FROM post_tags WHERE post_id = ?', [postId]);
+                if (tags && tags.length) {
+                    await Promise.all(
+                        tags.map(tagId => pool.query('INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)', [postId, tagId]))
+                    );
+                }
+            }
+
+            res.json({ message: 'Post updated successfully' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
 }
 
 module.exports = AdminController;

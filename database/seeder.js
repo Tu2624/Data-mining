@@ -107,6 +107,7 @@ async function seed() {
         await pool.query('TRUNCATE TABLE ratings');
         await pool.query('TRUNCATE TABLE notifications');
         await pool.query('TRUNCATE TABLE recommendations_cache');
+        await pool.query('TRUNCATE TABLE follows');
         await pool.query('TRUNCATE TABLE posts');
         await pool.query('TRUNCATE TABLE tags');
         await pool.query('TRUNCATE TABLE categories');
@@ -128,20 +129,23 @@ async function seed() {
         console.log('✅ Tags seeded');
 
         // 4. Seed Users
-        const hashedPassword = await bcrypt.hash('123456', 10);
+        const adminHash = await bcrypt.hash('admin123', 10);
+        const userHash = await bcrypt.hash('123456', 10);
+        
         const users = [];
         // Admin
         const [adminResult] = await pool.query('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)', 
-            ['admin', 'admin@foodrec.com', hashedPassword, 'admin']);
+            ['admin', 'admin@foodrec.com', adminHash, 'admin']);
         
         // Users for demo
         for (let i = 1; i <= 20; i++) {
             const username = `user${i}`;
             const [result] = await pool.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', 
-                [username, `${username}@gmail.com`, hashedPassword]);
+                [username, `${username}@gmail.com`, userHash]);
             users.push(result.insertId);
         }
         console.log('✅ Users seeded');
+        console.log('\n🔑 TÀI KHOẢN ADMIN: admin@foodrec.com / admin123');
 
         // 5. Seed Real Posts
         const posts = [];
@@ -213,6 +217,26 @@ async function seed() {
         }
         console.log('✅ Interactions & Ratings seeded');
 
+        // 8. Seed Follows (Quan hệ theo dõi mẫu)
+        const followPairs = [];
+        for (let i = 0; i < users.length; i++) {
+            const numFollowing = Math.floor(Math.random() * 5) + 2; // Mỗi user theo dõi 2-6 người
+            const shuffled = [...users].filter(u => u !== users[i]).sort(() => 0.5 - Math.random());
+            const toFollow = shuffled.slice(0, numFollowing);
+            for (const targetId of toFollow) {
+                const key = `${users[i]}-${targetId}`;
+                if (!followPairs.includes(key)) {
+                    followPairs.push(key);
+                    await pool.query(
+                        'INSERT IGNORE INTO follows (follower_id, following_id) VALUES (?, ?)',
+                        [users[i], targetId]
+                    );
+                }
+            }
+        }
+        console.log('✅ Follows seeded');
+        console.log('\n🔑 TÀI KHOẢN ADMIN: admin@foodrec.com / admin123');
+        console.log('🔑 TÀI KHOẢN USER MẪU: user1@gmail.com / 123456');
         console.log('💖 All data seeded successfully!');
     } catch (error) {
         console.error('❌ Seeding failed:', error);

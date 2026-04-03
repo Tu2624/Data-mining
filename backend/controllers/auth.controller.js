@@ -13,7 +13,10 @@ class AuthController {
             );
             res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            if (error.code === 'ER_DUP_ENTRY') {
+                return res.status(409).json({ error: 'Email hoặc tên người dùng đã tồn tại' });
+            }
+            res.status(500).json({ error: error.message });
         }
     }
 

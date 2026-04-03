@@ -8,12 +8,18 @@ import { PostCardSkeleton } from '../components/Skeleton';
 const Profile = () => {
     const { user } = useStore();
     const [history, setHistory] = useState([]);
+    const [favorites, setFavorites] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('history');
 
     useEffect(() => {
-        if (user) fetchHistory();
-    }, [user]);
+        if (!user) return;
+        if (activeTab === 'history') {
+            fetchHistory();
+        } else if (activeTab === 'favorites') {
+            fetchFavorites();
+        }
+    }, [activeTab, user]);
 
     const fetchHistory = async () => {
         setLoading(true);
@@ -27,7 +33,21 @@ const Profile = () => {
         }
     };
 
+    const fetchFavorites = async () => {
+        setLoading(true);
+        try {
+            const res = await client.get('/favorites');
+            setFavorites(res.data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!user) return <div className="p-20 text-center font-bold">Vui lòng đăng nhập để xem hồ sơ!</div>;
+
+    const currentData = activeTab === 'history' ? history : favorites;
 
     return (
         <div className="max-w-5xl mx-auto space-y-12">
@@ -59,14 +79,14 @@ const Profile = () => {
             {/* Tabs & Content */}
             <div className="space-y-8">
                 <div className="flex items-center gap-8 border-b border-gray-100 pb-2 overflow-x-auto">
-                    <button 
+                    <button
                         onClick={() => setActiveTab('history')}
                         className={`pb-4 text-sm font-black uppercase tracking-widest transition relative ${activeTab === 'history' ? 'text-primary-500' : 'text-gray-400 hover:text-gray-600'}`}
                     >
                         <Clock className="inline mr-2" size={18} /> Lịch sử xem (AI)
                         {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary-500 rounded-full"></div>}
                     </button>
-                    <button 
+                    <button
                         onClick={() => setActiveTab('favorites')}
                         className={`pb-4 text-sm font-black uppercase tracking-widest transition relative ${activeTab === 'favorites' ? 'text-primary-500' : 'text-gray-400 hover:text-gray-600'}`}
                     >
@@ -78,15 +98,22 @@ const Profile = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                     {loading ? (
                         [1, 2, 3, 4].map(i => <PostCardSkeleton key={i} />)
+                    ) : currentData.length > 0 ? (
+                        currentData.map(item => <PostCard key={item.id} post={item} />)
                     ) : (
-                        history.length > 0 ? (
-                            history.map(item => <PostCard key={item.id} post={item} />)
-                        ) : (
-                            <div className="col-span-full h-40 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-3xl">
-                                <Clock size={40} className="mb-2 opacity-20" />
-                                <p className="font-bold">Chưa có lịch sử hoạt động</p>
-                            </div>
-                        )
+                        <div className="col-span-full h-40 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-3xl">
+                            {activeTab === 'history' ? (
+                                <>
+                                    <Clock size={40} className="mb-2 opacity-20" />
+                                    <p className="font-bold">Chưa có lịch sử hoạt động</p>
+                                </>
+                            ) : (
+                                <>
+                                    <Heart size={40} className="mb-2 opacity-20" />
+                                    <p className="font-bold">Chưa có món ăn yêu thích</p>
+                                </>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
