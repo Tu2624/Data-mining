@@ -123,9 +123,23 @@ class PostsController {
         const userId = req.userId;
         try {
             if (action === 'like') {
-                await pool.query('INSERT IGNORE INTO likes (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                const [existing] = await pool.query('SELECT * FROM likes WHERE user_id = ? AND post_id = ?', [userId, postId]);
+                if (existing.length > 0) {
+                    await pool.query('DELETE FROM likes WHERE user_id = ? AND post_id = ?', [userId, postId]);
+                    await pool.query('DELETE FROM favorites WHERE user_id = ? AND post_id = ?', [userId, postId]); // Xóa khỏi favorites
+                } else {
+                    await pool.query('INSERT IGNORE INTO likes (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                    await pool.query('INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                }
             } else if (action === 'favorite') {
-                await pool.query('INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                const [existingFav] = await pool.query('SELECT * FROM favorites WHERE user_id = ? AND post_id = ?', [userId, postId]);
+                if (existingFav.length > 0) {
+                    await pool.query('DELETE FROM favorites WHERE user_id = ? AND post_id = ?', [userId, postId]);
+                } else {
+                    await pool.query('INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                }
+            } else if (action === 'view') {
+                await pool.query('INSERT INTO views (user_id, post_id) VALUES (?, ?)', [userId, postId]);
             } else if (action === 'rate') {
                 await pool.query(
                     'INSERT INTO ratings (user_id, post_id, score, comment) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score), comment = VALUES(comment)',
@@ -139,7 +153,7 @@ class PostsController {
                     await NotificationService.notifyUser(io, postAuthor[0].user_id, 'new_rating', `Món ăn "${postAuthor[0].title}" của bạn vừa nhận được đánh giá ${score} sao!`);
                 }
             }
-            res.json({ message: `Successfully ${action}d` });
+            res.json({ message: `Successfully interacted with action: ${action}` });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -338,23 +352,12 @@ class PostsController {
         const userId = req.userId;
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
-        const offset = (page - 1) * limit;
+        const streamLimit = limit / 2;
+        const streamOffset = (page - 1) * streamLimit;
 
         try {
-            // 1. Lấy danh sách ID người đang follow
-            const [following] = await pool.query('SELECT following_id FROM follows WHERE follower_id = ?', [userId]);
-            const followingIds = following.map(f => f.following_id);
-            if (followingIds.length === 0) followingIds.push(0); // Tránh lỗi SQL IN ()
-
-            // 2. Lấy gợi ý từ AI
-            const recs = await RecommendationService.getCollaborativeRecommendations(userId, 50);
-            const recIds = recs.map(r => r.postId);
-            if (recIds.length === 0) recIds.push(0);
-
-            console.log(`Feed Scoring for User ${userId}: Following ${followingIds.length}, AI Recs ${recIds.length}`);
-
-            // 3. THUẬT TOÁN HỢP NHẤT TRONG 1 CÂU TRUY VẤN
-            let query = `
+            // 1. LẤY BÀI VIẾT TỪ NGƯỜI FOLLOW
+            const followsQuery = `
                 SELECT 
                     p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
                     u.username, u.avatar_url, 
@@ -362,31 +365,97 @@ class PostsController {
                     (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
                     (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
                     (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
-                    EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked,
-                    CASE 
-                        WHEN p.user_id IN (?) THEN 100
-                        WHEN p.id IN (?) THEN 50
-                        ELSE 0
-                    END as priority_score
+                    EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked
                 FROM posts p
                 JOIN users u ON p.user_id = u.id
+                JOIN follows f ON p.user_id = f.following_id
                 LEFT JOIN media m ON p.id = m.post_id
-                GROUP BY p.id, u.username, u.avatar_url
-                ORDER BY priority_score DESC, p.created_at DESC
+                WHERE f.follower_id = ?
+                GROUP BY p.id
+                ORDER BY p.created_at DESC
                 LIMIT ? OFFSET ?
             `;
+            const [followsPosts] = await pool.query(followsQuery, [userId, userId, streamLimit, streamOffset]);
+
+            // 2. LẤY GỢI Ý TỪ AI
+            const recs = await RecommendationService.getCollaborativeRecommendations(userId, 20);
+            const recIds = recs.map(r => r.postId);
             
-            const [feed] = await pool.query(query, [userId, followingIds, recIds, limit, offset]);
-            
-            // Đánh dấu bài nào là AI Recommend để frontend hiển thị nhãn dán
-            const finalFeed = feed.map(post => ({
-                ...post,
-                is_ai_recommendation: recIds.includes(post.id) && !followingIds.includes(post.user_id) && post.user_id !== userId
-            }));
+            let aiPosts = [];
+            if (recIds.length > 0) {
+                const recsQuery = `
+                    SELECT 
+                        p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
+                        u.username, u.avatar_url, 
+                        MIN(m.url) as image_url,
+                        (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
+                        (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
+                        (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
+                        EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked
+                    FROM posts p
+                    JOIN users u ON p.user_id = u.id
+                    LEFT JOIN media m ON p.id = m.post_id
+                    WHERE p.id IN (?)
+                    GROUP BY p.id
+                    LIMIT ? OFFSET ?
+                `;
+                [aiPosts] = await pool.query(recsQuery, [userId, recIds, streamLimit, streamOffset]);
+            }
+
+            // 3. XEN KẼ 1:1 (INTERLEAVING)
+            const finalFeed = [];
+            const maxLength = Math.max(followsPosts.length, aiPosts.length);
+            const seenIds = new Set();
+
+            for (let i = 0; i < maxLength; i++) {
+                if (followsPosts[i] && !seenIds.has(followsPosts[i].id)) {
+                    finalFeed.push({ ...followsPosts[i], is_ai_recommendation: false });
+                    seenIds.add(followsPosts[i].id);
+                }
+                if (aiPosts[i] && !seenIds.has(aiPosts[i].id)) {
+                    finalFeed.push({ ...aiPosts[i], is_ai_recommendation: true });
+                    seenIds.add(aiPosts[i].id);
+                }
+            }
+
+            // FALLBACK: Nếu feed quá ít, lấy thêm bài mới nhất toàn hệ thống
+            if (finalFeed.length < 5) {
+                const processedIds = Array.from(seenIds).concat([0]);
+                const fallbackQuery = `
+                    SELECT 
+                        p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
+                        u.username, u.avatar_url, 
+                        MIN(m.url) as image_url,
+                        (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
+                        (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
+                        (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
+                        EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked
+                    FROM posts p
+                    JOIN users u ON p.user_id = u.id
+                    LEFT JOIN media m ON p.id = m.post_id
+                    WHERE p.id NOT IN (?)
+                    GROUP BY p.id
+                    ORDER BY p.created_at DESC
+                    LIMIT ?
+                `;
+                const [extraFeed] = await pool.query(fallbackQuery, [userId, processedIds, limit - finalFeed.length]);
+                finalFeed.push(...extraFeed.map(p => ({ ...p, is_ai_recommendation: false })));
+            }
 
             res.json(finalFeed);
         } catch (error) {
-            console.error('Unified Feed Error:', error);
+            console.error('Interleaved Feed Error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async getAIAnalysis(req, res) {
+        const userId = parseInt(req.params.userId || req.userId);
+        try {
+            const analysis = await RecommendationService.getComprehensiveAnalysis(userId);
+            res.json(analysis);
+        } catch (error) {
+            console.error('AI Analysis Error:', error);
             res.status(500).json({ error: error.message });
         }
     }

@@ -2,6 +2,11 @@
 CREATE DATABASE IF NOT EXISTS foodrec_ai DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE foodrec_ai;
 
+-- Drop Tables in Reverse Order of Dependencies
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS favorites, likes, ratings, comments, media, post_hashtags, hashtags, post_tags, tags, followers, follows, posts, users, categories, notifications, shares, recommendations_cache;
+SET FOREIGN_KEY_CHECKS = 1;
+
 -- 2. Bảng Users
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,

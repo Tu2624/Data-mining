@@ -67,19 +67,17 @@ const REAL_FOODS = [
 
 async function seed() {
     let pool;
-    // 0. Tạo kết nối ban đầu không cần database để tạo DB nếu chưa có
     const initialPool = mysql.createPool({
         host: process.env.DB_HOST,
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
-        multipleStatements: true // Quan trọng để chạy schema.sql
+        multipleStatements: true
     });
 
     try {
         console.log('🚀 Initializing Database...');
         await initialPool.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
         
-        // 1. Kết nối vào Database chính
         pool = mysql.createPool({
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
@@ -88,7 +86,6 @@ async function seed() {
             multipleStatements: true
         });
 
-        // 2. Tự động khởi tạo bảng từ schema.sql
         console.log('🏗 Building Tables from schema.sql...');
         const schemaPath = path.join(__dirname, 'schema.sql');
         const schemaSql = fs.readFileSync(schemaPath, 'utf8');
@@ -96,173 +93,116 @@ async function seed() {
 
         console.log('📦 Starting Seeding Data...');
 
-        // 1. Clear existing data
         await pool.query('SET FOREIGN_KEY_CHECKS = 0');
-        await pool.query('TRUNCATE TABLE post_tags');
-        await pool.query('TRUNCATE TABLE media');
-        await pool.query('TRUNCATE TABLE comments');
-        await pool.query('TRUNCATE TABLE likes');
-        await pool.query('TRUNCATE TABLE favorites');
-        await pool.query('TRUNCATE TABLE views');
-        await pool.query('TRUNCATE TABLE ratings');
-        await pool.query('TRUNCATE TABLE notifications');
-        await pool.query('TRUNCATE TABLE recommendations_cache');
-        await pool.query('TRUNCATE TABLE follows');
-        await pool.query('TRUNCATE TABLE posts');
-        await pool.query('TRUNCATE TABLE tags');
-        await pool.query('TRUNCATE TABLE categories');
-        await pool.query('TRUNCATE TABLE users');
-        await pool.query('TRUNCATE TABLE post_hashtags');
-        await pool.query('TRUNCATE TABLE hashtags');
-        await pool.query('TRUNCATE TABLE shares');
+        const tables = ['post_tags', 'media', 'comments', 'likes', 'favorites', 'views', 'ratings', 'notifications', 'recommendations_cache', 'follows', 'posts', 'tags', 'categories', 'users', 'post_hashtags', 'hashtags', 'shares'];
+        for (const table of tables) {
+            await pool.query(`TRUNCATE TABLE ${table}`);
+        }
         await pool.query('SET FOREIGN_KEY_CHECKS = 1');
 
-        // 2. Seed Categories
         for (const cat of CATEGORIES) {
             await pool.query('INSERT INTO categories (name) VALUES (?)', [cat]);
         }
-        const [categoryRows] = await pool.query('SELECT id FROM categories');
         console.log('✅ Categories seeded');
 
-        // 3. Seed Tags
         for (const tag of TAGS) {
             await pool.query('INSERT INTO tags (name) VALUES (?)', [tag]);
         }
-        const [tagRows] = await pool.query('SELECT id FROM tags');
         console.log('✅ Tags seeded');
 
-        // 4. Seed Users
         const adminHash = await bcrypt.hash('admin123', 10);
         const userHash = await bcrypt.hash('123456', 10);
         
         const users = [];
-        // Admin
-        const [adminResult] = await pool.query('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)', 
+        await pool.query('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)', 
             ['admin', 'admin@foodrec.com', adminHash, 'admin']);
         
-        // Users for demo
-        for (let i = 1; i <= 20; i++) {
+        for (let i = 1; i <= 21; i++) {
             const username = `user${i}`;
             const [result] = await pool.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', 
                 [username, `${username}@gmail.com`, userHash]);
             users.push(result.insertId);
         }
         console.log('✅ Users seeded');
-        console.log('\n🔑 TÀI KHOẢN ADMIN: admin@foodrec.com / admin123');
 
-        // 5. Seed Real Posts
         const posts = [];
         for (let i = 0; i < 40; i++) {
             const food = REAL_FOODS[i % REAL_FOODS.length];
-            // Find or insert category
             let [catRows] = await pool.query('SELECT id FROM categories WHERE name = ?', [food.category]);
-            let catId;
-            if (catRows.length > 0) {
-                catId = catRows[0].id;
-            } else {
-                const [newCat] = await pool.query('INSERT INTO categories (name) VALUES (?)', [food.category]);
-                catId = newCat.insertId;
-            }
+            let catId = catRows[0].id;
 
             const userId = users[Math.floor(Math.random() * users.length)];
             const [result] = await pool.query(
                 'INSERT INTO posts (user_id, title, description, price, location, category_id) VALUES (?, ?, ?, ?, ?, ?)',
-                [
-                    userId, 
-                    i > REAL_FOODS.length ? `${food.title} (${i})` : food.title, 
-                    food.description, 
-                    food.price + (Math.random() * 5000), 
-                    'Hà Nội, Việt Nam',
-                    catId
-                ]
+                [userId, i >= REAL_FOODS.length ? `${food.title} (${i})` : food.title, food.description, food.price + (Math.random() * 5000), 'Hà Nội', catId]
             );
             const postId = result.insertId;
             posts.push(postId);
 
-            // Seed Media
-            const imageUrl = `${food.image}?auto=format&fit=crop&w=800&q=80`;
-            await pool.query('INSERT INTO media (post_id, url) VALUES (?, ?)', [postId, imageUrl]);
-
-            // Seed specific Tags for post
-            for (const tagName of food.tags) {
-                let [tagRows] = await pool.query('SELECT id FROM tags WHERE name = ?', [tagName]);
-                if (tagRows.length > 0) {
-                    await pool.query('INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)', [postId, tagRows[0].id]);
-                }
-            }
+            await pool.query('INSERT INTO media (post_id, url) VALUES (?, ?)', [postId, `${food.image}?auto=format&fit=crop&w=800&q=80`]);
         }
         console.log('✅ Real Posts seeded');
 
-        // 6. Seed Interactions (Critical for Collaborative Filtering)
-        for (const userId of users) {
-            const numInteractions = Math.floor(Math.random() * 15) + 8;
-            const shuffledPosts = [...posts].sort(() => 0.5 - Math.random());
-            const interactedPosts = shuffledPosts.slice(0, numInteractions);
+        console.log('👥 Creating User Personas for accurate AI Clustering...');
+        const noodleLovers = users.slice(0, 7);
+        const fastfoodFans = users.slice(7, 14);
+        const healthyEaters = users.slice(14, 21);
 
-            for (const postId of interactedPosts) {
-                await pool.query('INSERT INTO views (user_id, post_id) VALUES (?, ?)', [userId, postId]);
-                
-                if (Math.random() > 0.4) {
-                    await pool.query('INSERT INTO likes (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+        const getPostsByCat = async (catName) => {
+            const [rows] = await pool.query('SELECT p.id FROM posts p JOIN categories c ON p.category_id = c.id WHERE c.name = ?', [catName]);
+            return rows.map(r => r.id);
+        };
+
+        const phos = await getPostsByCat('Phở');
+        const buncas = await getPostsByCat('Bún chả');
+        const banhmis = await getPostsByCat('Bánh mì');
+        const drinks = await getPostsByCat('Đồ uống');
+        const comtams = await getPostsByCat('Cơm tấm');
+
+        const seedPersona = async (userList, targetPosts, otherPosts, highRate = true) => {
+            for (const userId of userList) {
+                for (const postId of targetPosts) {
+                    if (Math.random() > 0.2) {
+                        const score = highRate ? (Math.floor(Math.random() * 2) + 4) : (Math.floor(Math.random() * 2) + 1);
+                        await pool.query('INSERT INTO ratings (user_id, post_id, score) VALUES (?, ?, ?)', [userId, postId, score]);
+                    }
                 }
-
-                if (Math.random() > 0.7) {
-                    await pool.query('INSERT INTO favorites (user_id, post_id) VALUES (?, ?)', [userId, postId]);
-                }
-
-                // 60% Chance to Rate
-                if (Math.random() > 0.4) {
-                    const score = Math.floor(Math.random() * 5) + 1;
-                    await pool.query('INSERT INTO ratings (user_id, post_id, score, comment) VALUES (?, ?, ?, ?)', 
-                        [userId, postId, score, `Bình luận mẫu từ user ${userId} cho món ${postId}`]);
+                const randomOthers = otherPosts.sort(() => 0.5 - Math.random()).slice(0, 3);
+                for (const postId of randomOthers) {
+                    const score = Math.floor(Math.random() * 3) + 2;
+                    await pool.query('INSERT INTO ratings (user_id, post_id, score) VALUES (?, ?, ?)', [userId, postId, score]);
                 }
             }
-        }
-        console.log('✅ Interactions & Ratings seeded');
+        };
 
-        // 8. Seed Follows (Quan hệ theo dõi mẫu)
-        const followPairs = [];
+        await seedPersona(noodleLovers, [...phos, ...buncas], [...drinks, ...comtams]);
+        await seedPersona(fastfoodFans, [...banhmis, ...comtams], [...phos, ...drinks]);
+        await seedPersona(healthyEaters, [...drinks], [...phos, ...buncas]);
+
+        console.log('✅ Interactions & Ratings seeded with Persona Clusters');
+
         for (let i = 0; i < users.length; i++) {
-            const numFollowing = Math.floor(Math.random() * 5) + 2; // Mỗi user theo dõi 2-6 người
+            const numFollowing = Math.floor(Math.random() * 3) + 1;
             const shuffled = [...users].filter(u => u !== users[i]).sort(() => 0.5 - Math.random());
             const toFollow = shuffled.slice(0, numFollowing);
             for (const targetId of toFollow) {
-                const key = `${users[i]}-${targetId}`;
-                if (!followPairs.includes(key)) {
-                    followPairs.push(key);
-                    await pool.query(
-                        'INSERT IGNORE INTO follows (follower_id, following_id) VALUES (?, ?)',
-                        [users[i], targetId]
-                    );
-                }
+                await pool.query('INSERT IGNORE INTO follows (follower_id, following_id) VALUES (?, ?)', [users[i], targetId]);
             }
         }
         console.log('✅ Follows seeded');
 
-        // 9. GOLD SET FOR AI ACCURACY DEMO
         console.log('\n🎯 TẠO DỮ LIỆU THỬ NGHIỆM ĐỘ CHÍNH XÁC AI (GOLD SET)...');
-        // Lấy ID món Phở Bò, Bún Chả, Cơm Tấm
-        const [[pho]] = await pool.query('SELECT id FROM posts WHERE title LIKE ? LIMIT 1', ['%Phở Bò%']);
-        const [[buncha]] = await pool.query('SELECT id FROM posts WHERE title LIKE ? LIMIT 1', ['%Bún Chả%']);
-        const [[comtam]] = await pool.query('SELECT id FROM posts WHERE title LIKE ? LIMIT 1', ['%Cơm Tấm%']);
-
-        if (pho && buncha && comtam) {
-            const u1 = users[0]; // user1
-            const u2 = users[1]; // user2
-
-            // User 1 thích Phở Bò, Bún Chả
-            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 5), (?, ?, 5)', [u1, pho.id, u1, buncha.id]);
-            
-            // User 2 cũng thích Phở Bò, Bún Chả VÀ THÊM Cơm Tấm
-            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 5), (?, ?, 5), (?, ?, 5)', [u2, pho.id, u2, buncha.id, u2, comtam.id]);
-
-            console.log(`✅ Đã thiết lập: User 1 và User 2 cùng thích Phở & Bún Chả.`);
-            console.log(`✅ Kết quả mong đợi: AI sẽ gợi ý "Cơm Tấm" cho User 1.`);
+        const u1 = users[0];
+        const u2 = users[1];
+        const [[hiddenGem]] = await pool.query('SELECT p.id, p.title FROM posts p JOIN categories c ON p.category_id = c.id WHERE c.name = ? LIMIT 1 OFFSET 2', ['Phở']);
+        if (hiddenGem) {
+            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 5)', [u2, hiddenGem.id]);
+            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 4)', [u1, phos[0]]);
+            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 4)', [u2, phos[0]]);
+            console.log(`✅ Kết quả mong đợi: AI sẽ gợi ý "${hiddenGem.title}" cho User 1.`);
         }
 
-        console.log('\n🔑 TÀI KHOẢN ADMIN: admin@foodrec.com / admin123');
-        console.log('🔑 TÀI KHOẢN USER MẪU: user1@gmail.com / 123456');
-        console.log('💖 All data seeded successfully!');
+        console.log('\n💖 All data seeded successfully!');
     } catch (error) {
         console.error('❌ Seeding failed:', error);
     } finally {

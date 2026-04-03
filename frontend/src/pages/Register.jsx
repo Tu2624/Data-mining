@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Utensils, User, Mail, Lock, LogIn } from 'lucide-react';
+import { Utensils, User, Mail, Lock, LogIn, Sparkles, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import client from '../api/client';
 import useStore from '../store/useStore';
 
@@ -45,98 +46,104 @@ const Register = () => {
     };
 
     return (
-        <div className="flex min-h-[80vh] items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-white rounded-[32px] p-10 shadow-premium">
-                <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-50 rounded-3xl text-primary-500 mb-6 shadow-soft">
-                        <Utensils size={40} />
+        <div className="flex min-h-[85vh] items-center justify-center p-6">
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-full max-w-xl bg-white rounded-[48px] p-12 shadow-premium border border-slate-100"
+            >
+                <div className="text-center mb-12 space-y-4">
+                    <div className="inline-flex items-center justify-center w-24 h-24 bg-indigo-50 rounded-[32px] text-indigo-600 mb-4 shadow-inner border border-indigo-100">
+                        <Utensils size={48} strokeWidth={1.5} />
                     </div>
-                    <h1 className="text-4xl font-black text-gray-900 leading-tight">Gia nhập FoodRec</h1>
-                    <p className="text-gray-400 font-bold mt-2">Bắt đầu hành trình khám phá ẩm thực AI</p>
+                    <h1 className="text-5xl font-black text-slate-900 leading-tight tracking-tighter">Gia nhập Lab AI</h1>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest italic">Khởi tạo thực thể mới trên hệ sinh thái FoodRec</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Tên người dùng</label>
-                        <div className="relative">
-                            <User className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <form onSubmit={handleSubmit} className="space-y-8">
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Định danh (Username)</label>
+                        <div className="relative group">
+                            <User className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
                             <input 
                                 type="text" 
                                 value={form.username}
                                 onChange={(e) => setForm({...form, username: e.target.value})}
                                 placeholder="Nhập tên của bạn..." 
-                                className="w-full bg-gray-50 rounded-2xl pl-14 pr-6 py-5 border-2 border-transparent focus:border-primary-500 outline-none font-bold transition-all"
+                                className="w-full bg-slate-50 rounded-[24px] pl-16 pr-8 py-5 border-2 border-transparent focus:border-indigo-600 focus:bg-white outline-none font-bold text-slate-900 transition-all shadow-inner"
                                 required
                             />
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Email</label>
-                        <div className="relative">
-                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Địa chỉ kết nối (Email)</label>
+                        <div className="relative group">
+                            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
                             <input 
                                 type="email" 
                                 value={form.email}
                                 onChange={(e) => setForm({...form, email: e.target.value})}
                                 placeholder="example@gmail.com" 
-                                className="w-full bg-gray-50 rounded-2xl pl-14 pr-6 py-5 border-2 border-transparent focus:border-primary-500 outline-none font-bold transition-all"
+                                className="w-full bg-slate-50 rounded-[24px] pl-16 pr-8 py-5 border-2 border-transparent focus:border-indigo-600 focus:bg-white outline-none font-bold text-slate-900 transition-all shadow-inner"
                                 required
                             />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Mật khẩu</label>
-                            <div className="relative">
-                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Mã bảo mật</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
                                 <input 
                                     type="password" 
                                     value={form.password}
                                     onChange={(e) => setForm({...form, password: e.target.value})}
                                     placeholder="••••••••" 
-                                    className="w-full bg-gray-50 rounded-2xl pl-14 pr-6 py-5 border-2 border-transparent focus:border-primary-500 outline-none font-bold transition-all"
+                                    className="w-full bg-slate-50 rounded-[24px] pl-16 pr-8 py-5 border-2 border-transparent focus:border-indigo-600 focus:bg-white outline-none font-bold text-slate-900 transition-all shadow-inner"
                                     required
                                 />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Xác nhận</label>
-                            <div className="relative">
-                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Xác nhận mã</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
                                 <input 
                                     type="password" 
                                     value={form.confirmPassword}
                                     onChange={(e) => setForm({...form, confirmPassword: e.target.value})}
                                     placeholder="••••••••" 
-                                    className="w-full bg-gray-50 rounded-2xl pl-14 pr-6 py-5 border-2 border-transparent focus:border-primary-500 outline-none font-bold transition-all"
+                                    className="w-full bg-slate-50 rounded-[24px] pl-16 pr-8 py-5 border-2 border-transparent focus:border-indigo-600 focus:bg-white outline-none font-bold text-slate-900 transition-all shadow-inner"
                                     required
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <button 
+                    <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         type="submit" 
                         disabled={loading}
-                        className="w-full bg-primary-500 text-white py-5 rounded-2xl font-black text-xl shadow-premium hover:shadow-none hover:translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        className="w-full bg-indigo-600 text-white py-6 rounded-[28px] font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
                     >
-                        {loading ? 'Đang khởi tạo...' : (
+                        {loading ? 'Đang khởi tạo thực thể...' : (
                             <>
-                                Đăng ký ngay <LogIn size={20} />
+                                Đăng ký ngay <ArrowRight size={20} />
                             </>
                         )}
-                    </button>
+                    </motion.button>
                 </form>
 
-                <div className="mt-8 pt-8 border-t border-gray-50 text-center">
-                    <p className="text-gray-400 font-bold">
-                        Đã có tài khoản?{' '}
-                        <Link to="/login" className="text-primary-500 hover:underline">Đăng nhập</Link>
+                <div className="mt-12 pt-10 border-t border-slate-50 text-center">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                        Đã có thẻ hội viên?{' '}
+                        <Link to="/login" className="text-indigo-600 hover:underline">Vào sảnh đăng nhập</Link>
                     </p>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };

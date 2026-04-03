@@ -65,7 +65,7 @@ class SocialController {
     }
 
     static async getFollowing(req, res) {
-        const userId = req.userId;
+        const userId = req.params.id || req.userId;
         try {
             const [following] = await pool.query(`
                 SELECT u.id, u.username, u.avatar_url
@@ -74,6 +74,21 @@ class SocialController {
                 WHERE f.follower_id = ?
             `, [userId]);
             res.json(following);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async getFollowers(req, res) {
+        const userId = req.params.id || req.userId;
+        try {
+            const [followers] = await pool.query(`
+                SELECT u.id, u.username, u.avatar_url
+                FROM users u
+                JOIN follows f ON u.id = f.follower_id
+                WHERE f.following_id = ?
+            `, [userId]);
+            res.json(followers);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

@@ -2,80 +2,233 @@ const pool = require('../config/db');
 
 class RecommendationService {
     /**
-     * Thuật toán Collaborative Filtering (Rating-based)
-     * Ưu tiên Rating (5 điểm), sau đó là Favorite (3), Like (2), View (1)
+     * Thuật toán Collaborative Filtering (Mean-Centered Cosine Similarity)
      */
-    static async getCollaborativeRecommendations(userId, limit = 10) {
+    static async getCollaborativeRecommendations(userId, limit = 10, targetMatrix = null) {
         try {
-            // Lấy dữ liệu điểm tương tác từ tất cả các nguồn
-            const query = `
-                SELECT user_id, post_id, MAX(score) as total_score
-                FROM (
-                    SELECT user_id, post_id, score FROM ratings
-                    UNION ALL
-                    SELECT user_id, post_id, 3 as score FROM favorites
-                    UNION ALL
-                    SELECT user_id, post_id, 2 as score FROM likes
-                    UNION ALL
-                    SELECT user_id, post_id, 1 as score FROM views
-                ) as interactions
-                GROUP BY user_id, post_id
-            `;
-            const [rows] = await pool.query(query);
+            const matrix = targetMatrix || await this.getInteractionMatrix();
+            if (!matrix[userId]) return [];
 
-            if (rows.length === 0) return [];
+            const userMeans = this.calculateUserMeans(matrix);
+            const adjustedMatrix = this.getAdjustedMatrix(matrix, userMeans);
 
-            const matrix = {};
-            rows.forEach(row => {
-                if (!matrix[row.user_id]) matrix[row.user_id] = {};
-                matrix[row.user_id][row.post_id] = row.total_score;
-            });
-
-            const currentUserInteractions = matrix[userId] || {};
-            const otherUserIds = Object.keys(matrix).filter(id => parseInt(id) !== userId);
-
-            // Tính toán Cosine Similarity
+            const currentUserAdjusted = adjustedMatrix[userId];
             const similarities = [];
-            otherUserIds.forEach(otherId => {
-                const sim = this.cosineSimilarity(currentUserInteractions, matrix[otherId]);
-                if (sim > 0.1) { // Chỉ lấy những user đủ tương đồng
+
+            for (const otherId in adjustedMatrix) {
+                if (parseInt(otherId) === userId) continue;
+                const sim = this.cosineSimilarity(currentUserAdjusted, adjustedMatrix[otherId]);
+                if (sim > 0) {
                     similarities.push({ userId: parseInt(otherId), similarity: sim });
                 }
-            });
+            }
 
             similarities.sort((a, b) => b.similarity - a.similarity);
+            const topNeighbors = similarities.slice(0, 7);
 
-            // Dự đoán điểm số cho các món ăn chưa xem
-            const recommendedPosts = {};
-            similarities.slice(0, 5).forEach(simUser => {
-                const otherUserPosts = matrix[simUser.userId];
-                for (const postId in otherUserPosts) {
-                    if (!currentUserInteractions[postId]) {
-                        if (!recommendedPosts[postId]) recommendedPosts[postId] = 0;
-                        recommendedPosts[postId] += otherUserPosts[postId] * simUser.similarity;
+            const predictions = {};
+            const simSum = {};
+
+            topNeighbors.forEach(neighbor => {
+                const neighborRatings = matrix[neighbor.userId];
+                for (const postId in neighborRatings) {
+                    if (!matrix[userId][postId]) {
+                        if (!predictions[postId]) {
+                            predictions[postId] = 0;
+                            simSum[postId] = 0;
+                        }
+                        const adjustedRating = neighborRatings[postId] - userMeans[neighbor.userId];
+                        predictions[postId] += neighbor.similarity * adjustedRating;
+                        simSum[postId] += Math.abs(neighbor.similarity);
                     }
                 }
             });
 
-            const finalRecommendations = Object.keys(recommendedPosts)
-                .map(postId => ({ postId: parseInt(postId), score: recommendedPosts[postId] }))
-                .sort((a, b) => b.score - a.score)
-                .slice(0, limit);
+            const finalRecs = [];
+            for (const postId in predictions) {
+                if (simSum[postId] > 0) {
+                    const predictedRating = userMeans[userId] + (predictions[postId] / simSum[postId]);
+                    finalRecs.push({ 
+                        postId: parseInt(postId), 
+                        score: parseFloat(predictedRating.toFixed(2)) 
+                    });
+                }
+            }
 
-            return finalRecommendations;
+            return finalRecs.sort((a, b) => b.score - a.score).slice(0, limit);
         } catch (error) {
+            console.error('Rec System Error:', error);
             return [];
         }
     }
 
     /**
-     * Content-based Filtering với logic Tag & Category
+     * PHÂN TÍCH CHI TIẾT (Cho AI LAB 2.0)
      */
+    static async getComprehensiveAnalysis(userId) {
+        try {
+            const matrix = await this.getInteractionMatrix();
+            const userMeans = this.calculateUserMeans(matrix);
+            const [users] = await pool.query('SELECT id, username FROM users');
+            const [posts] = await pool.query('SELECT id, title FROM posts');
+            const userMap = users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {});
+            const postMap = posts.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+
+            const adjustedMatrix = this.getAdjustedMatrix(matrix, userMeans);
+            const similarities = [];
+            for (const otherId in adjustedMatrix) {
+                if (parseInt(otherId) === userId) continue;
+                const sim = this.cosineSimilarity(adjustedMatrix[userId], adjustedMatrix[otherId]);
+                if (sim > 0.01) {
+                    similarities.push({ 
+                        userId: parseInt(otherId), 
+                        username: userMap[otherId]?.username || `User ${otherId}`,
+                        score: parseFloat(sim.toFixed(4)) 
+                    });
+                }
+            }
+            similarities.sort((a, b) => b.score - a.score);
+
+            const recommendations = await this.getCollaborativeRecommendations(userId, 10, matrix);
+            const mae = await this.calculateMAE(userId, matrix);
+
+            const currentUserInteractions = matrix[userId] || {};
+
+            return {
+                user: userMap[userId],
+                matrix: matrix,
+                userMeans,
+                similarities: similarities.slice(0, 10),
+                neighbors: similarities.slice(0, 5),
+                currentUserInteractions: Object.entries(currentUserInteractions).map(([pid, score]) => ({
+                    postId: pid,
+                    title: postMap[pid]?.title || `Món ${pid}`,
+                    score
+                })),
+                recommendations: recommendations.map(r => {
+                    // Tìm các contributors cho món ăn này
+                    const contributors = [];
+                    for (const otherId in matrix) {
+                        const sim = this.cosineSimilarity(adjustedMatrix[userId], adjustedMatrix[otherId]);
+                        if (sim > 0 && matrix[otherId][r.postId]) {
+                            contributors.push({
+                                username: userMap[otherId]?.username || `U${otherId}`,
+                                contribution: sim * (matrix[otherId][r.postId] - userMeans[otherId])
+                            });
+                        }
+                    }
+                    return {
+                        ...r,
+                        title: postMap[r.postId]?.title || `Món ${r.postId}`,
+                        contributors: contributors.sort((a, b) => b.contribution - a.contribution).slice(0, 5)
+                    };
+                }),
+                mae: parseFloat(mae.toFixed(4))
+            };
+        } catch (error) {
+            console.error('Analysis Error:', error);
+            throw error;
+        }
+    }
+
+    static async getInteractionMatrix() {
+        const query = `
+            SELECT user_id, post_id, MAX(score) as total_score
+            FROM (
+                SELECT user_id, post_id, score FROM ratings
+                UNION ALL
+                SELECT user_id, post_id, 3 as score FROM favorites
+                UNION ALL
+                SELECT user_id, post_id, 2 as score FROM likes
+                UNION ALL
+                SELECT user_id, post_id, 1 as score FROM views
+            ) as interactions
+            GROUP BY user_id, post_id
+        `;
+        const [rows] = await pool.query(query);
+        const matrix = {};
+        rows.forEach(row => {
+            if (!matrix[row.user_id]) matrix[row.user_id] = {};
+            matrix[row.user_id][row.post_id] = row.total_score;
+        });
+        return matrix;
+    }
+
+    static calculateUserMeans(matrix) {
+        const means = {};
+        for (const userId in matrix) {
+            const ratings = Object.values(matrix[userId]);
+            const sum = ratings.reduce((a, b) => a + b, 0);
+            means[userId] = sum / ratings.length;
+        }
+        return means;
+    }
+
+    static getAdjustedMatrix(matrix, means) {
+        const adjusted = {};
+        for (const userId in matrix) {
+            adjusted[userId] = {};
+            for (const postId in matrix[userId]) {
+                adjusted[userId][postId] = matrix[userId][postId] - means[userId];
+            }
+        }
+        return adjusted;
+    }
+
+    static async calculateMAE(userId, matrix) {
+        const userRatings = matrix[userId];
+        if (!userRatings || Object.keys(userRatings).length < 2) return 0;
+
+        const postIds = Object.keys(userRatings);
+        const testSize = Math.max(1, Math.floor(postIds.length * 0.2));
+        const testPosts = postIds.sort(() => 0.5 - Math.random()).slice(0, testSize);
+
+        const trainMatrix = { ...matrix, [userId]: { ...userRatings } };
+        testPosts.forEach(pid => delete trainMatrix[userId][pid]);
+
+        let totalError = 0;
+        let count = 0;
+
+        for (const pid of testPosts) {
+            const prediction = await this.predictSingle(userId, parseInt(pid), trainMatrix);
+            if (prediction !== null) {
+                totalError += Math.abs(prediction - userRatings[pid]);
+                count++;
+            }
+        }
+
+        return count === 0 ? 0 : totalError / count;
+    }
+
+    static async predictSingle(userId, postId, matrix) {
+        const userMeans = this.calculateUserMeans(matrix);
+        const adjustedMatrix = this.getAdjustedMatrix(matrix, userMeans);
+        const similarities = [];
+
+        for (const otherId in adjustedMatrix) {
+            if (parseInt(otherId) === userId) continue;
+            const sim = this.cosineSimilarity(adjustedMatrix[userId], adjustedMatrix[otherId]);
+            if (sim > 0 && matrix[otherId][postId]) {
+                similarities.push({ userId: parseInt(otherId), similarity: sim });
+            }
+        }
+
+        if (similarities.length === 0) return null;
+
+        let num = 0;
+        let den = 0;
+        similarities.forEach(s => {
+            num += s.similarity * (matrix[s.userId][postId] - userMeans[s.userId]);
+            den += Math.abs(s.similarity);
+        });
+
+        return userMeans[userId] + (num / den);
+    }
+
     static async getContentBasedRecommendations(postId, limit = 5) {
         try {
             const [postInfo] = await pool.query('SELECT category_id FROM posts WHERE id = ?', [postId]);
             if (!postInfo.length) return [];
-
             const categoryId = postInfo[0].category_id;
             
             const query = `
@@ -97,20 +250,16 @@ class RecommendationService {
     }
 
     static cosineSimilarity(vecA, vecB) {
-        let dotProduct = 0;
-        let mA = 0, mB = 0;
-        const keys = new Set([...Object.keys(vecA), ...Object.keys(vecB)]);
-
-        keys.forEach(key => {
-            const valA = vecA[key] || 0;
-            const valB = vecB[key] || 0;
-            dotProduct += valA * valB;
-            mA += valA * valA;
-            mB += valB * valB;
+        let dotProduct = 0, mA = 0, mB = 0;
+        const commonPosts = Object.keys(vecA).filter(p => vecB[p] !== undefined);
+        if (commonPosts.length === 0) return 0;
+        commonPosts.forEach(p => {
+            dotProduct += vecA[p] * vecB[p];
         });
-
-        const magnitude = Math.sqrt(mA) * Math.sqrt(mB);
-        return magnitude === 0 ? 0 : dotProduct / magnitude;
+        Object.values(vecA).forEach(v => mA += v * v);
+        Object.values(vecB).forEach(v => mB += v * v);
+        const mag = Math.sqrt(mA) * Math.sqrt(mB);
+        return mag === 0 ? 0 : dotProduct / mag;
     }
 }
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, LogIn, Sparkles } from 'lucide-react';
+import { Mail, Lock, LogIn, Sparkles, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import client from '../api/client';
 import useStore from '../store/useStore';
 
@@ -26,60 +27,70 @@ const Login = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto pt-20">
-      <div className="bg-white rounded-3xl p-8 shadow-premium space-y-8">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 text-primary-500 rounded-2xl mb-4">
-             <Sparkles size={32} />
+    <div className="max-w-md mx-auto pt-24 px-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[40px] p-10 shadow-premium space-y-10 border border-slate-100"
+      >
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-50 text-indigo-600 rounded-[28px] mb-2 shadow-inner border border-indigo-100">
+             <Sparkles size={36} fill="currentColor" fillOpacity={0.2} />
           </div>
-          <h1 className="text-3xl font-black">Chào mừng trở lại</h1>
-          <p className="text-gray-400 font-medium text-sm">Đăng nhập để nhận gợi ý món ăn chuẩn gu AI.</p>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Chào mừng bạn</h1>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest leading-relaxed">
+            Kết nối với thuật toán DeepMind <br/> 
+            để cá nhân hóa hành trình ẩm thực.
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Email</label>
-            <div className="flex items-center bg-gray-50 rounded-2xl px-4 py-3 border-2 border-transparent focus-within:border-primary-500 transition">
-              <Mail size={18} className="text-gray-400" />
+        <form onSubmit={handleLogin} className="space-y-8">
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Cổng kết nối (Email)</label>
+            <div className="flex items-center bg-slate-50 rounded-2xl px-6 py-4 border-2 border-transparent focus-within:border-indigo-600 focus-within:bg-white transition-all shadow-inner">
+              <Mail size={18} className="text-slate-400" />
               <input 
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email@example.com"
-                className="bg-transparent border-none focus:ring-0 ml-3 w-full text-sm font-medium outline-none"
+                className="bg-transparent border-none focus:ring-0 ml-4 w-full text-sm font-bold text-slate-900 outline-none"
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Mật khẩu</label>
-            <div className="flex items-center bg-gray-50 rounded-2xl px-4 py-3 border-2 border-transparent focus-within:border-primary-500 transition">
-              <Lock size={18} className="text-gray-400" />
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Mã bảo mật (Password)</label>
+            <div className="flex items-center bg-slate-50 rounded-2xl px-6 py-4 border-2 border-transparent focus-within:border-indigo-600 focus-within:bg-white transition-all shadow-inner">
+              <Lock size={18} className="text-slate-400" />
               <input 
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="********"
-                className="bg-transparent border-none focus:ring-0 ml-3 w-full text-sm font-medium outline-none"
+                className="bg-transparent border-none focus:ring-0 ml-4 w-full text-sm font-bold text-slate-900 outline-none"
                 required
               />
             </div>
           </div>
 
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit" 
             disabled={loading}
-            className="w-full bg-primary-500 text-white py-4 rounded-2xl font-black text-lg shadow-premium hover:scale-[1.02] transition active:scale-95 disabled:opacity-50"
+            className="w-full bg-indigo-600 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-indigo-600/20 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-3"
           >
-            {loading ? 'Đang xác thực...' : 'Đăng nhập ngay'}
-          </button>
+            {loading ? 'Đang giải mã...' : 'Xác thực ngay'}
+            {!loading && <ArrowRight size={18} />}
+          </motion.button>
         </form>
 
-        <div className="text-center text-sm font-bold text-gray-400">
-           Chưa có tài khoản? <Link to="/register" className="text-primary-500 hover:underline">Đăng ký tại đây</Link>
+        <div className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+           Chưa có dữ liệu hội viên? <Link to="/register" className="text-indigo-600 hover:underline">Khởi tạo tại đây</Link>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

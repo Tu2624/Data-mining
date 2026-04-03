@@ -26,7 +26,8 @@ router.get('/tags', PostsController.getTags);
 router.post('/social/follow', authMiddleware, SocialController.follow);
 router.post('/social/unfollow', authMiddleware, SocialController.unfollow);
 router.get('/social/stats/:id?', authMiddleware, SocialController.getStats);
-router.get('/social/following', authMiddleware, SocialController.getFollowing);
+router.get('/social/following/:id?', authMiddleware, SocialController.getFollowing);
+router.get('/social/followers/:id?', authMiddleware, SocialController.getFollowers);
 router.get('/social/suggestions', authMiddleware, SocialController.getSuggestions);
 
 // Favorites & Notifications
@@ -37,6 +38,9 @@ router.patch('/notifications/read', authMiddleware, PostsController.markNotifica
 // Comments
 router.get('/posts/:id/comments', PostsController.getComments);
 router.post('/posts/:id/comments', authMiddleware, PostsController.postComment);
+
+// AI Lab & Analytics
+router.get('/ai/full-analysis/:userId?', authMiddleware, PostsController.getAIAnalysis);
 
 // Admin Routes (Giữ lại cho các tác vụ quản trị khác nếu cần)
 router.post('/admin/posts', authMiddleware, adminOnly, AdminController.createPost);
