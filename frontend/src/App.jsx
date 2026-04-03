@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Friends from './pages/Friends';
 import useStore from './store/useStore';
 import { io } from 'socket.io-client';
 
@@ -40,6 +41,7 @@ const App = () => {
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/friends" element={<Friends />} />
           </Routes>
         </main>
       </div>

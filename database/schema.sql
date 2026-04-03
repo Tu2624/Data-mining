@@ -28,9 +28,12 @@ CREATE TABLE IF NOT EXISTS posts (
     price FLOAT DEFAULT 0,
     location VARCHAR(255),
     category_id INT,
+    is_shared BOOLEAN DEFAULT FALSE,
+    original_post_id INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (original_post_id) REFERENCES posts(id) ON DELETE SET NULL
 );
 
 -- 5. Bảng Media
@@ -144,8 +147,29 @@ CREATE TABLE IF NOT EXISTS follows (
     CHECK (follower_id != following_id)
 );
 
--- 16. Indexes để tăng tốc độ truy vấn
-CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
-CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
-CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+-- 16. Bảng Hashtags
+CREATE TABLE IF NOT EXISTS hashtags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- 17. Bảng Post_Hashtags (Mối quan hệ bài viết - hashtag)
+CREATE TABLE IF NOT EXISTS post_hashtags (
+    post_id INT,
+    hashtag_id INT,
+    PRIMARY KEY (post_id, hashtag_id),
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (hashtag_id) REFERENCES hashtags(id) ON DELETE CASCADE
+);
+
+-- 18. Bảng Shares (Lưu vết lượt chia sẻ)
+CREATE TABLE IF NOT EXISTS shares (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    post_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+-- 19. Các bảng đã được tự động đánh Index qua Foreign Keys và Primary Keys.

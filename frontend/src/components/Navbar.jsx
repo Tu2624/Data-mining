@@ -42,18 +42,23 @@ const Navbar = () => {
   return (
     <nav className="sticky top-0 z-50 glass px-6 py-3 shadow-soft flex items-center justify-between">
       {/* Brand */}
-      <Link to="/" className="flex items-center gap-2 text-primary-500 font-black text-2xl tracking-tighter">
-        <Flame fill="currentColor" />
-        <span>FOODREC</span>
+      <Link to="/" className="flex items-center gap-2 text-primary-600 font-black text-2xl tracking-tighter">
+        <div className="w-10 h-10 bg-primary-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-200">
+          <Flame fill="currentColor" size={24} />
+        </div>
+        <div className="flex flex-col leading-none">
+          <span className="text-gray-900">FOOD</span>
+          <span className="text-primary-500 text-sm tracking-[0.2em]">SOCIAL</span>
+        </div>
       </Link>
 
       {/* Global Search */}
-      <div className="hidden md:flex items-center bg-gray-100 rounded-full px-4 py-2 w-1/3">
+      <div className="hidden md:flex items-center bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 w-1/3 focus-within:ring-2 ring-primary-100 transition-all">
         <Search size={18} className="text-gray-400" />
         <input
           type="text"
-          placeholder="Tìm món ăn, địa điểm..."
-          className="bg-transparent border-none focus:ring-0 ml-2 w-full text-sm outline-none"
+          placeholder="Tìm món ăn, người dùng hoặc #hashtag..."
+          className="bg-transparent border-none focus:ring-0 ml-2 w-full text-sm outline-none font-medium"
         />
       </div>
 

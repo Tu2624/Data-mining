@@ -44,7 +44,7 @@ const REAL_FOODS = [
         description: 'Sự kết hợp độc đáo giữa vị đắng của cà phê, vị béo của kem mặn tạo nên một hương vị khó quên từ cố đô.',
         price: 30000,
         category: 'Đồ uống',
-        image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735',
+        image: 'https://images.unsplash.com/photo-1521017432531-fbd92d74426b',
         tags: ['Healthy', 'Sang trọng']
     },
     {
@@ -59,8 +59,8 @@ const REAL_FOODS = [
         title: 'Bánh Xèo Nam Bộ',
         description: 'Bánh xèo vàng giòn rụm, nhân tôm thịt đầy đặn ăn kèm các loại rau rừng đặc trưng miền Tây.',
         price: 80000,
-        category: 'Bánh mì', // Tạm để danh mục gần đúng
-        image: 'https://images.unsplash.com/photo-1512058560566-42724afbc2db',
+        category: 'Bánh mì',
+        image: 'https://images.unsplash.com/photo-1551443874-884ec9298379',
         tags: ['Dân dã', 'Đặc sản']
     }
 ];
@@ -112,6 +112,9 @@ async function seed() {
         await pool.query('TRUNCATE TABLE tags');
         await pool.query('TRUNCATE TABLE categories');
         await pool.query('TRUNCATE TABLE users');
+        await pool.query('TRUNCATE TABLE post_hashtags');
+        await pool.query('TRUNCATE TABLE hashtags');
+        await pool.query('TRUNCATE TABLE shares');
         await pool.query('SET FOREIGN_KEY_CHECKS = 1');
 
         // 2. Seed Categories
@@ -235,6 +238,28 @@ async function seed() {
             }
         }
         console.log('✅ Follows seeded');
+
+        // 9. GOLD SET FOR AI ACCURACY DEMO
+        console.log('\n🎯 TẠO DỮ LIỆU THỬ NGHIỆM ĐỘ CHÍNH XÁC AI (GOLD SET)...');
+        // Lấy ID món Phở Bò, Bún Chả, Cơm Tấm
+        const [[pho]] = await pool.query('SELECT id FROM posts WHERE title LIKE ? LIMIT 1', ['%Phở Bò%']);
+        const [[buncha]] = await pool.query('SELECT id FROM posts WHERE title LIKE ? LIMIT 1', ['%Bún Chả%']);
+        const [[comtam]] = await pool.query('SELECT id FROM posts WHERE title LIKE ? LIMIT 1', ['%Cơm Tấm%']);
+
+        if (pho && buncha && comtam) {
+            const u1 = users[0]; // user1
+            const u2 = users[1]; // user2
+
+            // User 1 thích Phở Bò, Bún Chả
+            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 5), (?, ?, 5)', [u1, pho.id, u1, buncha.id]);
+            
+            // User 2 cũng thích Phở Bò, Bún Chả VÀ THÊM Cơm Tấm
+            await pool.query('INSERT IGNORE INTO ratings (user_id, post_id, score) VALUES (?, ?, 5), (?, ?, 5), (?, ?, 5)', [u2, pho.id, u2, buncha.id, u2, comtam.id]);
+
+            console.log(`✅ Đã thiết lập: User 1 và User 2 cùng thích Phở & Bún Chả.`);
+            console.log(`✅ Kết quả mong đợi: AI sẽ gợi ý "Cơm Tấm" cho User 1.`);
+        }
+
         console.log('\n🔑 TÀI KHOẢN ADMIN: admin@foodrec.com / admin123');
         console.log('🔑 TÀI KHOẢN USER MẪU: user1@gmail.com / 123456');
         console.log('💖 All data seeded successfully!');

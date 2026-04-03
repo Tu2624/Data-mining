@@ -285,6 +285,111 @@ class PostsController {
             res.status(500).json({ error: error.message });
         }
     }
+
+    static async createPost(req, res) {
+        const { title, description, price, location, categoryId, imageUrl, originalPostId } = req.body;
+        const userId = req.userId;
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const isShared = !!originalPostId;
+            const [result] = await connection.query(
+                'INSERT INTO posts (user_id, title, description, price, location, category_id, is_shared, original_post_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [userId, title, description, price, location, categoryId, isShared, originalPostId]
+            );
+            const postId = result.insertId;
+
+            if (imageUrl) {
+                await connection.query('INSERT INTO media (post_id, url) VALUES (?, ?)', [postId, imageUrl]);
+            }
+
+            // TỰ ĐỘNG TÁCH HASHTAG
+            const hashtagRegex = /#([\w\u00C0-\u1EF9]+)/g; // Hỗ trợ Tiếng Việt
+            const hashtags = [...new Set(description.match(hashtagRegex) || [])];
+
+            for (let tag of hashtags) {
+                const tagName = tag.substring(1).toLowerCase();
+                await connection.query('INSERT IGNORE INTO hashtags (name) VALUES (?)', [tagName]);
+                const [[hashtagRow]] = await connection.query('SELECT id FROM hashtags WHERE name = ?', [tagName]);
+                await connection.query('INSERT IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?)', [postId, hashtagRow.id]);
+            }
+
+            if (isShared) {
+                await connection.query('INSERT INTO shares (user_id, post_id) VALUES (?, ?)', [userId, originalPostId]);
+            }
+
+            await connection.commit();
+
+            const io = req.app.get('io');
+            const [[user]] = await connection.query('SELECT username FROM users WHERE id = ?', [userId]);
+            await NotificationService.notifyAll(io, 'new_post', `${user.username} vừa đăng một bài viết mới! ${hashtags.join(' ')}`);
+
+            res.status(201).json({ message: 'Đăng bài thành công!', postId, hashtags });
+        } catch (error) {
+            await connection.rollback();
+            res.status(500).json({ error: error.message });
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async getFeed(req, res) {
+        const userId = req.userId;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const offset = (page - 1) * limit;
+
+        try {
+            // 1. Lấy danh sách ID người đang follow
+            const [following] = await pool.query('SELECT following_id FROM follows WHERE follower_id = ?', [userId]);
+            const followingIds = following.map(f => f.following_id);
+            if (followingIds.length === 0) followingIds.push(0); // Tránh lỗi SQL IN ()
+
+            // 2. Lấy gợi ý từ AI
+            const recs = await RecommendationService.getCollaborativeRecommendations(userId, 50);
+            const recIds = recs.map(r => r.postId);
+            if (recIds.length === 0) recIds.push(0);
+
+            console.log(`Feed Scoring for User ${userId}: Following ${followingIds.length}, AI Recs ${recIds.length}`);
+
+            // 3. THUẬT TOÁN HỢP NHẤT TRONG 1 CÂU TRUY VẤN
+            let query = `
+                SELECT 
+                    p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
+                    u.username, u.avatar_url, 
+                    MIN(m.url) as image_url,
+                    (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
+                    (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
+                    (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
+                    EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked,
+                    CASE 
+                        WHEN p.user_id IN (?) THEN 100
+                        WHEN p.id IN (?) THEN 50
+                        ELSE 0
+                    END as priority_score
+                FROM posts p
+                JOIN users u ON p.user_id = u.id
+                LEFT JOIN media m ON p.id = m.post_id
+                GROUP BY p.id, u.username, u.avatar_url
+                ORDER BY priority_score DESC, p.created_at DESC
+                LIMIT ? OFFSET ?
+            `;
+            
+            const [feed] = await pool.query(query, [userId, followingIds, recIds, limit, offset]);
+            
+            // Đánh dấu bài nào là AI Recommend để frontend hiển thị nhãn dán
+            const finalFeed = feed.map(post => ({
+                ...post,
+                is_ai_recommendation: recIds.includes(post.id) && !followingIds.includes(post.user_id) && post.user_id !== userId
+            }));
+
+            res.json(finalFeed);
+        } catch (error) {
+            console.error('Unified Feed Error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
 }
 
 module.exports = PostsController;

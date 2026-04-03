@@ -1,55 +1,56 @@
-# Thuật toán Gợi ý (AI Recommendation Logic): FoodRec AI
+# 🧠 Giải thích Thuật toán Khai phá dữ liệu & Gợi ý (AI Recommendation)
 
-FoodRec AI sử dụng hệ thống **Hybrid Recommendation** (Gợi ý lai), kết hợp giữa **Collaborative Filtering** và **Content-based Filtering** để đảm bảo độ chính xác cao và giải quyết vấn đề "Cold Start" (Người dùng mới).
-
-## 📊 1. Mô hình Điểm Tương tác (Multi-Interaction Scoring)
-
-Hệ thống không chỉ dựa vào đánh giá (Ratings) mà còn sử dụng các tín hiệu tương tác khác để đánh giá độ quan tâm của người dùng. Mỗi loại tương tác được gán một trọng số (Score):
-
-| Tương tác (Interaction) | Điểm (Weight) | Ý nghĩa |
-| :--- | :--- | :--- |
-| **Rating** | 1 - 5 | Tín hiệu tường minh nhất từ người dùng. |
-| **Favorite** | 3 | Người dùng muốn lưu lại để xem sau. |
-| **Like** | 2 | Đồng tình hoặc ủng hộ món ăn. |
-| **View** | 1 | Tín hiệu ngầm định về sự quan tâm. |
-
-*Hệ thống sẽ lấy giá trị cao nhất (`MAX`) nếu một người dùng có nhiều tương tác trên cùng một món ăn.*
-
-## 🤝 2. Lọc Cộng tác (Collaborative Filtering - User-Based)
-
-Thuật toán này tìm kiếm những người dùng có "khẩu vị" tương đồng với bạn để đưa ra gợi ý.
-
-### Bước 1: Xây dựng Ma trận Người dùng - Món ăn (User-Item Matrix)
-Hệ thống lấy dữ liệu từ các bảng `ratings`, `favorites`, `likes`, và `views` để tạo thành một ma trận điểm số.
-
-### Bước 2: Tính độ tương đồng bằng Cosine Similarity
-Độ tương đồng giữa Người dùng A ($U_A$) và Người dùng B ($U_B$) được tính bằng công thức:
-
-$$\text{Similarity}(U_A, U_B) = \frac{\sum_{i=1}^{n} R_{A,i} \cdot R_{B,i}}{\sqrt{\sum_{i=1}^{n} R_{A,i}^2} \cdot \sqrt{\sum_{i=1}^{n} R_{B,i}^2}}$$
-
-Trong đó:
-- $R_{A,i}$ là điểm của người dùng $A$ cho món ăn $i$.
-- $n$ là tổng số món ăn trong hệ thống.
-
-### Bước 3: Dự đoán điểm số
-Hệ thống sẽ lấy Top 5 người dùng tương đồng nhất và tính toán điểm dự báo cho các món ăn mà người dùng hiện tại chưa xem:
-$$\text{Score}(U, i) = \sum_{V \in \text{SimilarUsers}} \text{Score}(V, i) \cdot \text{Similarity}(U, V)$$
-
-## 🏷️ 3. Lọc dựa trên Nội dung (Content-based Filtering)
-
-Thuật toán này tập trung vào đặc tính của món ăn để gợi ý các sản phẩm tương tự.
-
-### Cơ chế hoạt động:
-1. **Phân loại (Category Matching)**: Ưu tiên các món ăn cùng danh mục (VD: Cùng là "Món nước").
-2. **Thẻ (Tag Overlap)**: Đếm số lượng thẻ chung giữa các món ăn (VD: Cùng có thẻ "Cay", "Hải sản").
-3. **Sắp xếp**: Các món ăn có nhiều thẻ chung nhất và cùng danh mục sẽ được đẩy lên đầu.
-
-## ⚡ 4. Chiến lược Hybrid & Caching
-
-- **Cấu hình**: Hệ thống kết hợp kết quả từ cả hai engine. 
-- **Caching**: Kết quả gợi ý được lưu vào bảng `recommendations_cache` để truy xuất tức thời (Sub-50ms), thay vì phải tính toán lại toàn bộ ma trận khi mỗi request đến.
-- **Tần suất cập nhật**: Cache được làm mới khi người dùng thực hiện một tương tác quan trọng (Rating/Favorite) hoặc sau một khoảng thời gian nhất định.
+Tài liệu này giải thích chi tiết cách hệ thống **FoodRec AI** khai phá dữ liệu người dùng để đưa ra các gợi ý món ăn chính xác.
 
 ---
-> [!IMPORTANT]
-> Thuật toán Collaborative Filtering yêu cầu một lượng dữ liệu tương tác tối thiểu để đạt độ chính xác cao. Cho đến khi đó, Content-based Filtering sẽ đóng vai trò chủ đạo.
+
+## 1. Thuật toán Collaborative Filtering (User-based)
+Đây là "trái tim" của hệ thống, được cài đặt tại `backend/services/recommendation.service.js`.
+
+### 🔍 Cách thức khai phá:
+Hệ thống không chỉ dựa vào việc bạn thích gì, mà dựa vào việc **"Những người giống bạn cũng thích món này"**.
+
+1.  **Thu thập Ma trận Tương tác (User-Item Matrix)**:
+    Hệ thống gom tất cả dữ liệu từ 4 nguồn: `Ratings` (5đ), `Favorites` (3đ), `Likes` (2đ), và `Views` (1đ).
+2.  **Tính toán độ tương đồng (Cosine Similarity)**:
+    Sử dụng công thức Cosine để so sánh vector hành vi của bạn với tất cả các người dùng khác trong hệ thống.
+    $$ \text{similarity} = \frac{A \cdot B}{\|A\| \|B\|} $$
+3.  **Dự đoán sở thích**:
+    Hệ thống tìm ra top 5 người dùng "tâm đầu ý hợp" nhất với bạn. Nếu họ thích một món ăn mà bạn chưa từng xem, AI sẽ tính điểm dự đoán cho món đó dựa trên độ tương đồng của họ.
+
+---
+
+## 2. Thuật toán Xếp hạng Bảng tin (Unified Feed Scoring)
+Để Bảng tin (Home Feed) luôn hấp dẫn, chúng tôi sử dụng cơ chế **Scoring (Tính điểm ưu tiên)** trong `getFeed`.
+
+| Độ ưu tiên | Nguồn dữ liệu | Điểm cộng | Lý do |
+| :--- | :--- | :--- | :--- |
+| **1 (Cao nhất)** | People You Follow | +100 | Bạn chủ động muốn xem tin từ họ (Tính xã hội). |
+| **2 (Trung bình)** | AI Recommendation | +50 | AI dự đoán bạn sẽ thích dựa trên khai phá dữ liệu. |
+| **3 (Cơ bản)** | Trending/Recent | +0 | Các bài viết mới nhất để đảm bảo feed không bao giờ trống. |
+
+---
+
+## 3. Cách kiểm chứng độ chính xác (Accuracy Verification)
+Trong môn Khai phá dữ liệu, việc kiểm chứng (Validation) là cực kỳ quan trọng.
+
+### Kịch bản "Gold Set":
+Trong `database/seeder.js`, tôi đã cài đặt một kịch bản mẫu để demo:
+*   **User 1**: Thích `Phở` và `Bún Chả`.
+*   **User 2**: Thích `Phở`, `Bún Chả` và thêm món `Cơm Tấm`.
+*   **Kết quả**: AI nhận thấy User 1 và User 2 rất giống nhau (cùng thích Phở & Bún Chả). Do đó, nó sẽ tự động gợi ý `Cơm Tấm` cho User 1.
+
+**Lệnh chạy kiểm tra:**
+```powershell
+node scripts/verify_accuracy.js
+```
+
+---
+
+## 4. Công cụ Khai phá
+*   **Hashtag Extracting**: Tự động bóc tách `#hashtag` từ nội dung bài viết để phân loại chủ đề (Topic Modeling cơ bản).
+*   **Social Graph**: Sử dụng bảng `follows` để xây dựng mạng lưới quan hệ giữa các thực thể dữ liệu.
+
+---
+> [!TIP]
+> Bạn có thể sử dụng file này để đưa vào phần **Báo cáo chuyên môn** hoặc **Slide thuyết trình** của mình. Nó thể hiện rõ các bước: Thu thập dữ liệu -> Xử lý/Tính toán -> Đưa ra kết quả (Gợi ý).
