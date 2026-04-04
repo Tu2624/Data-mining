@@ -4,7 +4,7 @@ const NotificationService = require("../services/notification.service");
 
 class PostsController {
   static async getAll(req, res) {
-    const { categoryId, minPrice, maxPrice, q } = req.query;
+    const { categoryId, minPrice, maxPrice, q, userId } = req.query;
     try {
       // Sửa SQL để tương thích với ONLY_FULL_GROUP_BY
       let query = `
@@ -42,6 +42,10 @@ class PostsController {
       if (q) {
         query += " AND p.title LIKE ?";
         params.push(`%${q}%`);
+      }
+      if (userId) {
+        query += " AND p.user_id = ?";
+        params.push(userId);
       }
 
       query += " GROUP BY p.id";
@@ -397,11 +401,11 @@ class PostsController {
           userId,
           title,
           description,
-          price,
+          parseFloat(price) || 0,
           location,
-          categoryId,
+          parseInt(categoryId) || null,
           isShared,
-          originalPostId,
+          parseInt(originalPostId) || null,
         ],
       );
       const postId = result.insertId;

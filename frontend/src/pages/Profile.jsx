@@ -30,11 +30,12 @@ const Profile = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [history, setHistory] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  const [userPosts, setUserPosts] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("favorites");
+  const [activeTab, setActiveTab] = useState("posts");
 
   const isOwnProfile = !id || parseInt(id) === user?.id;
 
@@ -48,6 +49,7 @@ const Profile = () => {
         client.get(`/social/stats/${targetId}`),
         client.get(`/social/followers/${targetId}`),
         client.get(`/social/following/${targetId}`),
+        client.get(`/posts?userId=${targetId}`), // Lấy bài viết của User này
       ];
 
       if (isOwnProfile) {
@@ -62,18 +64,19 @@ const Profile = () => {
       setStats(results[0].data);
       setFollowers(results[1].data || []);
       setFollowing(results[2].data || []);
+      setUserPosts(results[3].data || []);
 
       if (isOwnProfile) {
-        setHistory(results[3].data || []);
-        setFavorites(results[4].data || []);
+        setHistory(results[4].data || []);
+        setFavorites(results[5].data || []);
         setProfileUser(user);
       } else {
-        const userData = results[3].data;
+        const userData = results[4].data;
         setProfileUser(userData);
         setIsFollowing(userData.isFollowing);
         // Reset tabs not applicable to others
         if (activeTab === "history" || activeTab === "favorites") {
-          setActiveTab("followers");
+          setActiveTab("posts");
         }
       }
     } catch (error) {
@@ -120,7 +123,12 @@ const Profile = () => {
       </div>
     );
 
-  const currentData = activeTab === "history" ? history : favorites;
+  const currentData =
+    activeTab === "history"
+      ? history
+      : activeTab === "favorites"
+        ? favorites
+        : userPosts;
 
   return (
     <div className="max-w-6xl mx-auto pb-32 px-4 md:px-0">
@@ -288,6 +296,7 @@ const Profile = () => {
       <div className="space-y-12 sm:px-4">
         <div className="flex items-center justify-center md:justify-start gap-12 border-b-2 border-slate-100 overflow-x-auto no-scrollbar pt-2">
           {[
+            { id: "posts", label: "Bài đăng", icon: Grid },
             isOwnProfile && { id: "favorites", label: "Cảm hứng đã thích", icon: Heart },
             isOwnProfile && { id: "history", label: "Lịch sử AI", icon: Clock },
             {
@@ -339,7 +348,7 @@ const Profile = () => {
                   <PostCardSkeleton key={i} />
                 ))}
               </div>
-            ) : ["favorites", "history"].includes(activeTab) ? (
+            ) : ["favorites", "history", "posts"].includes(activeTab) ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {currentData.length > 0 ? (
                   currentData.map((post, idx) => (

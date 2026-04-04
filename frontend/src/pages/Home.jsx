@@ -15,6 +15,7 @@ import { Link, useLocation } from "react-router-dom";
 import client from "../api/client";
 import useStore from "../store/useStore";
 import PostCard from "../components/PostCard";
+import CreatePost from "../components/CreatePost";
 
 const Home = () => {
   const [posts, setPosts] = useState([]);
@@ -144,6 +145,12 @@ const Home = () => {
           />
         </div>
       </div>
+
+      {/* Create Post Section - Neural Entry */}
+      <div className="max-w-3xl mx-auto mb-12">
+        <CreatePost onPostCreated={fetchPosts} />
+      </div>
+
 
       {/* Feed Grid - Staggered Motion */}
       {loading ? (

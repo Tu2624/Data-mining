@@ -68,6 +68,20 @@ class RecommendationService {
     static async getComprehensiveAnalysis(userId) {
         try {
             const matrix = await this.getInteractionMatrix();
+            if (!matrix[userId]) {
+                // FALLBACK: Nếu User chưa có tương tác nào
+                const [users] = await pool.query('SELECT id, username FROM users WHERE id = ?', [userId]);
+                return {
+                    user: users[0] || { id: userId, username: 'User' },
+                    matrix: matrix,
+                    userMeans: {},
+                    similarities: [],
+                    neighbors: [],
+                    currentUserInteractions: [],
+                    recommendations: [],
+                    mae: 0
+                };
+            }
             const userMeans = this.calculateUserMeans(matrix);
             const [users] = await pool.query('SELECT id, username FROM users');
             const [posts] = await pool.query('SELECT id, title FROM posts');

@@ -29,42 +29,51 @@ const SimilaritiesVisualizer = ({ analysis, radarData }) => {
           Ma trận sở thích (Radar Chart)
         </h3>
         <div className="w-full h-[450px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-              <PolarGrid stroke="#e2e8f0" strokeWidth={2} />
-              <PolarAngleAxis
-                dataKey="subject"
-                tick={{
-                  fill: "#64748b",
-                  fontSize: 10,
-                  fontStyle: "italic",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                }}
-              />
-              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
-              <Radar
-                name="Độ tương hợp"
-                dataKey="A"
-                stroke="#4f46e5"
-                strokeWidth={4}
-                fill="#4f46e5"
-                fillOpacity={0.15}
-              />
-              <ReTooltip
-                contentStyle={{
-                  borderRadius: "24px",
-                  border: "none",
-                  padding: "16px 24px",
-                  boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.15)",
-                  background: "rgba(255, 255, 255, 0.95)",
-                  backdropFilter: "blur(10px)",
-                  fontWeight: 900,
-                  fontSize: "12px",
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+          {radarData && radarData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                <PolarGrid stroke="#e2e8f0" strokeWidth={2} />
+                <PolarAngleAxis
+                  dataKey="subject"
+                  tick={{
+                    fill: "#64748b",
+                    fontSize: 10,
+                    fontStyle: "italic",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                  }}
+                />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
+                <Radar
+                  name="Độ tương hợp"
+                  dataKey="A"
+                  stroke="#4f46e5"
+                  strokeWidth={4}
+                  fill="#4f46e5"
+                  fillOpacity={0.15}
+                />
+                <ReTooltip
+                  contentStyle={{
+                    borderRadius: "24px",
+                    border: "none",
+                    padding: "16px 24px",
+                    boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.15)",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(10px)",
+                    fontWeight: 900,
+                    fontSize: "12px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-300">
+              <div className="w-20 h-20 rounded-full border-4 border-slate-100 border-t-indigo-200 animate-spin" />
+              <p className="text-[10px] font-black uppercase tracking-widest italic">
+                Đang giải mã ma trận tương quan...
+              </p>
+            </div>
+          )}
         </div>
         <div className="mt-8 p-8 bg-slate-50 rounded-[32px] border border-slate-100 relative">
           <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-widest italic">
