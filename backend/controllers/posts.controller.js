@@ -13,14 +13,19 @@ class PostsController {
                     MIN(m.url) as image_url, 
                     MIN(c.name) as category_name, 
                     COALESCE(AVG(r.score), 0) as avg_rating,
-                    COUNT(r.score) as rating_count
+                    COUNT(r.score) as rating_count,
+                    u.username, u.avatar_url,
+                    IF(f.id IS NOT NULL, TRUE, FALSE) as is_following_author
                 FROM posts p
-                LEFT JOIN media m ON p.id = m.post_id
-                LEFT JOIN categories c ON p.category_id = c.id
-                LEFT JOIN ratings r ON p.id = r.post_id
+                    LEFT JOIN media m ON p.id = m.post_id
+                    LEFT JOIN categories c ON p.category_id = c.id
+                    LEFT JOIN ratings r ON p.id = r.post_id
+                    LEFT JOIN users u ON p.user_id = u.id
+                    LEFT JOIN follows f ON (f.follower_id = ? AND f.following_id = p.user_id)
                 WHERE 1=1
             `;
-      const params = [];
+      const params = [req.userId || 0];
+
 
       if (categoryId) {
         query += " AND p.category_id = ?";
@@ -63,14 +68,18 @@ class PostsController {
       // Lấy thông tin bài đăng
       const [posts] = await pool.query(
         `
-                SELECT p.*, m.url as image_url, c.name as category_name
+                SELECT p.*, m.url as image_url, c.name as category_name, 
+                       u.username as author_name, u.avatar_url as author_avatar,
+                       EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
                 FROM posts p
                 LEFT JOIN media m ON p.id = m.post_id
                 LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN users u ON p.user_id = u.id
                 WHERE p.id = ?
             `,
-        [postId],
+        [userId || 0, postId],
       );
+
 
       if (!posts.length)
         return res.status(404).json({ error: "Post not found" });
@@ -472,13 +481,15 @@ class PostsController {
                     (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
                     (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
                     (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
-                    EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked
+                    EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked,
+                    TRUE as is_following_author
                 FROM posts p
                 JOIN users u ON p.user_id = u.id
                 JOIN follows f ON p.user_id = f.following_id
                 LEFT JOIN media m ON p.id = m.post_id
                 WHERE f.follower_id = ?
                 GROUP BY p.id
+
                 ORDER BY p.created_at DESC
                 LIMIT ? OFFSET ?
             `;
@@ -506,7 +517,8 @@ class PostsController {
                         (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
                         (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
                         (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
-                        EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked
+                        EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked,
+                        EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
                     LEFT JOIN media m ON p.id = m.post_id
@@ -517,9 +529,11 @@ class PostsController {
         [aiPosts] = await pool.query(recsQuery, [
           userId,
           recIds,
+          userId,
           streamLimit,
           streamOffset,
         ]);
+
       }
 
       // 3. XEN KẼ 1:1 (INTERLEAVING)
@@ -549,7 +563,8 @@ class PostsController {
                         (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
                         (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
                         (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
-                        EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked
+                        EXISTS(SELECT 1 FROM likes WHERE post_id = p.id AND user_id = ?) as is_liked,
+                        EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
                     LEFT JOIN media m ON p.id = m.post_id
@@ -560,9 +575,11 @@ class PostsController {
                 `;
         const [extraFeed] = await pool.query(fallbackQuery, [
           userId,
+          userId,
           processedIds,
           limit - finalFeed.length,
         ]);
+
         finalFeed.push(
           ...extraFeed.map((p) => ({ ...p, is_ai_recommendation: false })),
         );

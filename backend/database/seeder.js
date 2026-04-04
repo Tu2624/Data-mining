@@ -1,8 +1,9 @@
+const path = require('path');
 const mysql = require('mysql2/promise');
-require('dotenv').config({ path: './backend/.env' });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
-const path = require('path');
+
 
 const CATEGORIES = ['Phở', 'Bún chả', 'Cơm tấm', 'Bánh mì', 'Đồ uống', 'Tráng miệng', 'Lẩu & Nướng'];
 const TAGS = ['Gia truyền', 'Sân vườn', 'Vỉa hè', 'Sang trọng', 'Giá sinh viên', 'Đặc sản', 'Healthy'];
@@ -139,7 +140,28 @@ async function seed() {
             const postId = result.insertId;
             posts.push(postId);
 
+            // Gán Media
             await pool.query('INSERT INTO media (post_id, url) VALUES (?, ?)', [postId, `${food.image}?auto=format&fit=crop&w=800&q=80`]);
+
+            // Gán Tags (Content-based AI)
+            if (food.tags) {
+                for (const tagName of food.tags) {
+                    const [[tagRow]] = await pool.query('SELECT id FROM tags WHERE name = ?', [tagName]);
+                    if (tagRow) {
+                        await pool.query('INSERT IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)', [postId, tagRow.id]);
+                    }
+                }
+            }
+
+            // Trích xuất Hashtags (Discovery system)
+            const hashtagRegex = /#([\w\u00C0-\u1EF9]+)/g;
+            const hashtags = food.description.match(hashtagRegex) || [];
+            for (const tag of hashtags) {
+                const name = tag.substring(1).toLowerCase();
+                await pool.query('INSERT IGNORE INTO hashtags (name) VALUES (?)', [name]);
+                const [[hRow]] = await pool.query('SELECT id FROM hashtags WHERE name = ?', [name]);
+                await pool.query('INSERT IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?)', [postId, hRow.id]);
+            }
         }
         console.log('✅ Real Posts seeded');
 
@@ -162,9 +184,22 @@ async function seed() {
         const seedPersona = async (userList, targetPosts, otherPosts, highRate = true) => {
             for (const userId of userList) {
                 for (const postId of targetPosts) {
-                    if (Math.random() > 0.2) {
+                    const rand = Math.random();
+                    if (rand > 0.2) {
                         const score = highRate ? (Math.floor(Math.random() * 2) + 4) : (Math.floor(Math.random() * 2) + 1);
                         await pool.query('INSERT INTO ratings (user_id, post_id, score) VALUES (?, ?, ?)', [userId, postId, score]);
+                        
+                        // Thêm Like cho AI (Trọng số 2)
+                        if (score >= 4) {
+                            await pool.query('INSERT IGNORE INTO likes (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                            if (Math.random() > 0.5) {
+                                await pool.query('INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)', [userId, postId]);
+                            }
+                        }
+                    }
+                    // Thêm View ngẫu nhiên (Trọng số 1)
+                    if (Math.random() > 0.4) {
+                        await pool.query('INSERT INTO views (user_id, post_id) VALUES (?, ?)', [userId, postId]);
                     }
                 }
                 const randomOthers = otherPosts.sort(() => 0.5 - Math.random()).slice(0, 3);

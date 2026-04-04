@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
+
 import {
   User,
   Clock,
@@ -23,32 +24,58 @@ import { PostCardSkeleton } from "../components/Skeleton";
 
 const Profile = () => {
   const { user, logout } = useStore();
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [profileUser, setProfileUser] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [history, setHistory] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("favorites"); // 'favorites', 'history', 'followers', 'following'
+  const [activeTab, setActiveTab] = useState("favorites");
+
+  const isOwnProfile = !id || parseInt(id) === user?.id;
 
   const fetchProfileData = async () => {
-    if (!user) return;
     setLoading(true);
     try {
-      const [statsRes, historyRes, favoritesRes, followersRes, followingRes] =
-        await Promise.all([
-          client.get(`/social/stats`),
-          client.get("/history"),
-          client.get("/favorites"),
-          client.get("/social/followers"),
-          client.get("/social/following"),
-        ]);
+      const targetId = id || user?.id;
+      if (!targetId) return;
 
-      setStats(statsRes.data);
-      setHistory(historyRes.data);
-      setFavorites(favoritesRes.data);
-      setFollowers(followersRes.data || []);
-      setFollowing(followingRes.data || []);
+      const requests = [
+        client.get(`/social/stats/${targetId}`),
+        client.get(`/social/followers/${targetId}`),
+        client.get(`/social/following/${targetId}`),
+      ];
+
+      if (isOwnProfile) {
+        requests.push(client.get("/history"));
+        requests.push(client.get("/favorites"));
+      } else {
+        requests.push(client.get(`/social/profile/${targetId}`));
+      }
+
+      const results = await Promise.all(requests);
+
+      setStats(results[0].data);
+      setFollowers(results[1].data || []);
+      setFollowing(results[2].data || []);
+
+      if (isOwnProfile) {
+        setHistory(results[3].data || []);
+        setFavorites(results[4].data || []);
+        setProfileUser(user);
+      } else {
+        const userData = results[3].data;
+        setProfileUser(userData);
+        setIsFollowing(userData.isFollowing);
+        // Reset tabs not applicable to others
+        if (activeTab === "history" || activeTab === "favorites") {
+          setActiveTab("followers");
+        }
+      }
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
@@ -56,9 +83,25 @@ const Profile = () => {
     }
   };
 
+  const handleFollowToggle = async () => {
+    if (!user) return navigate("/login");
+    try {
+      if (isFollowing) {
+        await client.post("/social/unfollow", { followingId: id });
+        setStats((prev) => ({ ...prev, followers: prev.followers - 1 }));
+      } else {
+        await client.post("/social/follow", { followingId: id });
+        setStats((prev) => ({ ...prev, followers: prev.followers + 1 }));
+      }
+      setIsFollowing(!isFollowing);
+    } catch (error) {
+      console.error("Follow toggle failed:", error);
+    }
+  };
+
   useEffect(() => {
     fetchProfileData();
-  }, [user]);
+  }, [id, user]);
 
   if (!user)
     return (
@@ -131,9 +174,9 @@ const Profile = () => {
                 className="flex items-center gap-4 justify-center md:justify-start"
               >
                 <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none">
-                  {user.username}
+                  {profileUser?.username || "..."}
                 </h1>
-                {user.role === "admin" && (
+                {profileUser?.role === "admin" && (
                   <div
                     className="p-2 bg-indigo-50 text-indigo-600 rounded-xl shadow-soft border border-indigo-100"
                     title="Core Admin"
@@ -160,18 +203,35 @@ const Profile = () => {
                   <MapPin size={16} /> Việt Nam
                 </span>
                 <span className="flex items-center gap-2 text-indigo-400 bg-indigo-50 px-3 py-1 rounded-lg">
-                  Cấp độ 4: Nhà ẩm thực AI
+                  {profileUser?.role === "admin"
+                    ? "Kiến trúc sư AI"
+                    : "Nhà ẩm thực cấp độ 4"}
                 </span>
               </motion.div>
             </div>
 
             <div className="flex items-center gap-4">
-              <button className="px-10 py-4 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:scale-105 transition active:scale-95">
-                Cập nhật hồ sơ
-              </button>
-              <button className="p-4 bg-white border border-slate-100 text-slate-400 rounded-[22px] hover:text-indigo-600 transition shadow-soft hover:bg-indigo-50/30">
-                <Settings size={22} />
-              </button>
+              {isOwnProfile ? (
+                <>
+                  <button className="px-10 py-4 bg-indigo-600 text-white rounded-[24px] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-600/20 hover:scale-105 transition active:scale-95">
+                    Cập nhật hồ sơ
+                  </button>
+                  <button className="p-4 bg-white border border-slate-100 text-slate-400 rounded-[22px] hover:text-indigo-600 transition shadow-soft hover:bg-indigo-50/30">
+                    <Settings size={22} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleFollowToggle}
+                  className={`px-12 py-4 rounded-[24px] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 ${
+                    isFollowing
+                      ? "bg-white border border-slate-200 text-slate-400 shadow-slate-200/20"
+                      : "bg-indigo-600 text-white shadow-indigo-600/20 hover:scale-105"
+                  }`}
+                >
+                  {isFollowing ? "Đang theo dõi" : "Theo dõi"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -228,8 +288,8 @@ const Profile = () => {
       <div className="space-y-12 sm:px-4">
         <div className="flex items-center justify-center md:justify-start gap-12 border-b-2 border-slate-100 overflow-x-auto no-scrollbar pt-2">
           {[
-            { id: "favorites", label: "Cảm hứng đã thích", icon: Heart },
-            { id: "history", label: "Lịch sử AI", icon: Clock },
+            isOwnProfile && { id: "favorites", label: "Cảm hứng đã thích", icon: Heart },
+            isOwnProfile && { id: "history", label: "Lịch sử AI", icon: Clock },
             {
               id: "followers",
               label: `Followers (${stats.followers})`,
@@ -240,7 +300,7 @@ const Profile = () => {
               label: `Following (${stats.following})`,
               icon: User,
             },
-          ].map((tab) => (
+          ].filter(Boolean).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}

@@ -13,4 +13,19 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// Xử lý lỗi 401 (Unauthorized) toàn cục
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.warn("Phiên làm việc hết hạn hoặc không hợp lệ. Đang đăng xuất...");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default client;
+

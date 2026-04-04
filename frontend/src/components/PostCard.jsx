@@ -7,6 +7,8 @@ import {
   MapPin,
   Star,
   Sparkles,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -18,6 +20,23 @@ const PostCard = ({ post, onUpdate }) => {
   const { user } = useStore();
   const [isLiked, setIsLiked] = useState(post.is_liked);
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
+  const [following, setFollowing] = useState(post.is_following_author);
+
+  const handleFollowToggle = async (e) => {
+    e.preventDefault();
+    if (!user) return alert("Vui lòng đăng nhập để theo dõi!");
+    try {
+      if (following) {
+        await client.post("/social/unfollow", { followingId: post.user_id });
+      } else {
+        await client.post("/social/follow", { followingId: post.user_id });
+      }
+      setFollowing(!following);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
 
   const handleLike = async (e) => {
     e.preventDefault();
@@ -99,6 +118,15 @@ const PostCard = ({ post, onUpdate }) => {
               >
                 {post.username}
               </Link>
+              {user?.id !== post.user_id && (
+                <button
+                  onClick={handleFollowToggle}
+                  className={`p-1.5 rounded-lg transition-all ${following ? "text-slate-300 hover:text-slate-400" : "text-indigo-600 hover:bg-indigo-50"}`}
+                  title={following ? "Bỏ theo dõi" : "Theo dõi"}
+                >
+                  {following ? <UserMinus size={14} /> : <UserPlus size={14} />}
+                </button>
+              )}
               {post.is_ai_recommendation && (
                 <motion.span
                   initial={{ opacity: 0, scale: 0.8 }}

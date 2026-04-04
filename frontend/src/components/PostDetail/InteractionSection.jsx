@@ -1,6 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Sparkles, MapPin, Star, Heart, BookmarkPlus } from "lucide-react";
+import { Sparkles, MapPin, Star, Heart, BookmarkPlus, UserPlus, UserMinus } from "lucide-react";
+import { Link } from "react-router-dom";
+import client from "../../api/client";
+import useStore from "../../store/useStore";
+
 
 const InteractionSection = ({
   post,
@@ -11,6 +15,23 @@ const InteractionSection = ({
   setHoverRating,
   handleInteract,
 }) => {
+  const { user } = useStore();
+  const [following, setFollowing] = React.useState(post.is_following_author);
+
+  const handleFollowToggle = async () => {
+    if (!user) return alert("Vui lòng đăng nhập để theo dõi!");
+    try {
+      if (following) {
+        await client.post("/social/unfollow", { followingId: post.user_id });
+      } else {
+        await client.post("/social/follow", { followingId: post.user_id });
+      }
+      setFollowing(!following);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <motion.div
       initial={{ x: 30, opacity: 0 }}
@@ -31,10 +52,38 @@ const InteractionSection = ({
         <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-[1] tracking-tighter group-hover:text-indigo-600 transition-colors">
           {post.title}
         </h1>
-        <p className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] italic">
-          <MapPin size={16} className="text-indigo-500" /> {post.location}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] italic">
+            <MapPin size={16} className="text-indigo-500" /> {post.location}
+          </p>
+          
+          <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+            <Link to={`/profile/${post.user_id}`} className="flex items-center gap-3 group">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner overflow-hidden">
+                {post.author_avatar ? (
+                  <img src={post.author_avatar} alt={post.author_name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-black text-xs">{post.author_name?.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{post.author_name}</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tác giả</span>
+              </div>
+            </Link>
+            
+            {user?.id !== post.user_id && (
+              <button 
+                onClick={handleFollowToggle}
+                className={`p-2 rounded-xl transition-all ${following ? 'bg-white text-slate-400 shadow-soft' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'}`}
+              >
+                {following ? <UserMinus size={16} /> : <UserPlus size={16} />}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
+
 
       <div className="flex items-center gap-10 border-y border-slate-100 py-10">
         <div className="flex flex-col gap-1">

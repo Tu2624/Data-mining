@@ -41,6 +41,11 @@ router.get(
   SocialController.getFollowers,
 );
 router.get(
+  "/social/profile/:id",
+  authMiddleware,
+  SocialController.getUserProfile,
+);
+router.get(
   "/social/suggestions",
   authMiddleware,
   SocialController.getSuggestions,

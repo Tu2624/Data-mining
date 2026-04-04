@@ -135,6 +135,35 @@ class SocialController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  static async getUserProfile(req, res) {
+    const userId = req.params.id;
+    const currentUserId = req.userId;
+    try {
+      const [[user]] = await pool.query(
+        "SELECT id, username, email, avatar_url, role, created_at FROM users WHERE id = ?",
+        [userId],
+      );
+
+      if (!user) {
+        return res.status(404).json({ error: "Người dùng không tồn tại" });
+      }
+
+      // Kiểm tra xem user hiện tại có đang follow người này không
+      const [[followRecord]] = await pool.query(
+        "SELECT * FROM follows WHERE follower_id = ? AND following_id = ?",
+        [currentUserId, userId],
+      );
+
+      res.json({
+        ...user,
+        isFollowing: !!followRecord,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
+
 
 module.exports = SocialController;

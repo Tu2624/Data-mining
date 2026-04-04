@@ -60,6 +60,14 @@ const AnimatedRoutes = () => {
           }
         />
         <Route
+          path="/profile/:id"
+          element={
+            <PageWrapper>
+              <Profile />
+            </PageWrapper>
+          }
+        />
+        <Route
           path="/admin"
           element={
             <PageWrapper>
