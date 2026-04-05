@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Heart,
   MessageCircle,
@@ -18,9 +18,17 @@ import HashtagText from "./HashtagText";
 
 const PostCard = ({ post, onUpdate }) => {
   const { user } = useStore();
-  const [isLiked, setIsLiked] = useState(post.is_liked);
+  const [isLiked, setIsLiked] = useState(
+    Boolean(post.is_liked || post.is_favorited),
+  );
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
   const [following, setFollowing] = useState(post.is_following_author);
+
+  useEffect(() => {
+    setIsLiked(Boolean(post.is_liked || post.is_favorited));
+    setLikeCount(Number(post.like_count || 0));
+    setFollowing(Boolean(post.is_following_author));
+  }, [post.is_liked, post.is_favorited, post.like_count, post.is_following_author]);
 
   const handleFollowToggle = async (e) => {
     e.preventDefault();

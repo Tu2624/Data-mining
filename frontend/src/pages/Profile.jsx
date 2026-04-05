@@ -181,7 +181,7 @@ const Profile = () => {
                 animate={{ y: 0, opacity: 1 }}
                 className="flex items-center gap-4 justify-center md:justify-start"
               >
-                <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none">
+                <h1 className="text-4xl md:text-6xl font-black text-blue-900 tracking-tighter leading-none">
                   {profileUser?.username || "..."}
                 </h1>
                 {profileUser?.role === "admin" && (

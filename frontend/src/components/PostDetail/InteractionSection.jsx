@@ -105,6 +105,9 @@ const InteractionSection = ({
           <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
             Rating Cộng đồng
           </span>
+          <span className="text-xs text-slate-500 font-semibold">
+            {Number(post.rating_count || 0)} lượt đánh giá
+          </span>
         </div>
       </div>
 

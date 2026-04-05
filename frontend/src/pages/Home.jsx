@@ -18,6 +18,7 @@ import PostCard from "../components/PostCard";
 import CreatePost from "../components/CreatePost";
 
 const Home = () => {
+  const { user } = useStore();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("Tất cả");
@@ -29,7 +30,23 @@ const Home = () => {
       const params = new URLSearchParams(location.search);
       const query = params.get("q") || "";
       const res = await client.get(`/posts?q=${query}`);
-      setPosts(res.data);
+
+      let mergedPosts = res.data;
+      if (user) {
+        const favoritesRes = await client.get("/favorites");
+        const favoriteIds = new Set((favoritesRes.data || []).map((item) => item.id));
+
+        mergedPosts = (res.data || []).map((post) => {
+          const isFavorited = favoriteIds.has(post.id);
+          return {
+            ...post,
+            is_favorited: isFavorited,
+            is_liked: Boolean(post.is_liked || isFavorited),
+          };
+        });
+      }
+
+      setPosts(mergedPosts);
     } catch (error) {
       console.error(error);
     } finally {
@@ -39,7 +56,7 @@ const Home = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, [location.search]);
+  }, [location.search, user]);
 
   const containerVariants = {
     hidden: { opacity: 0 },

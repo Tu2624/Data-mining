@@ -15,13 +15,15 @@ const CommentSection = ({
   return (
     <section className="pt-24 border-t border-slate-100 space-y-12">
       <div className="flex items-center justify-between">
-        <h2 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <MessageCircle size={32} className="text-slate-300" />
-          Cộng đồng{" "}
-          <span className="text-indigo-600 italic font-mono text-2xl ml-2 tracking-widest">
-            // {comments.length}
-          </span>
-        </h2>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter">
+            Cộng đồng
+          </h2>
+        </div>
+        <span className="text-indigo-600 italic font-mono text-2xl tracking-widest">
+           {comments.length}
+        </span>
       </div>
 
       {/* Floating Submit Form */}

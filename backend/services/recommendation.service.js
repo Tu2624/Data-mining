@@ -246,9 +246,20 @@ class RecommendationService {
             const categoryId = postInfo[0].category_id;
             
             const query = `
-                SELECT p.id, COUNT(pt.tag_id) as common_tags
+                SELECT p.id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
+                       p.user_id, u.username, u.avatar_url,
+                       MIN(m.url) as image_url,
+                       MIN(c.name) as category_name,
+                       COALESCE(AVG(r.score), 0) as avg_rating,
+                       COUNT(r.score) as rating_count,
+                       COUNT(pt.tag_id) as common_tags,
+                       0 as is_liked, 0 as like_count, 0 as comment_count, 0 as share_count
                 FROM posts p
                 LEFT JOIN post_tags pt ON p.id = pt.post_id
+                LEFT JOIN media m ON p.id = m.post_id
+                LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN ratings r ON p.id = r.post_id
+                LEFT JOIN users u ON p.user_id = u.id
                 WHERE p.id != ? AND (p.category_id = ? OR pt.tag_id IN (
                     SELECT tag_id FROM post_tags WHERE post_id = ?
                 ))
