@@ -1,12 +1,35 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Info, X, Calculator, Users, Star, Heart, ThumbsUp, Eye } from "lucide-react";
 
 const LogicVisualizer = ({ analysis }) => {
   const [showMath, setShowMath] = useState(false);
+  const [selectedTrace, setSelectedTrace] = useState(null);
+
+  const weights = analysis?.weights || { rating: 1, favorite: 3, like: 2, view: 1 };
 
   return (
     <div className="col-span-12 space-y-12">
+      {/* Phase 0: Scoring Weights (Hệ thống tính điểm) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-1 md:grid-cols-4 gap-6"
+      >
+        {[
+          { label: "Rating (Sao)", value: weights.rating, icon: Star, color: "text-amber-500", bg: "bg-amber-50" },
+          { label: "Favorite (Yêu thích)", value: weights.favorite, icon: Heart, color: "text-rose-500", bg: "bg-rose-50" },
+          { label: "Like (Thích)", value: weights.like, icon: ThumbsUp, color: "text-blue-500", bg: "bg-blue-50" },
+          { label: "View (Xem)", value: weights.view, icon: Eye, color: "text-slate-500", bg: "bg-slate-50" },
+        ].map((w, i) => (
+          <div key={i} className={`p-6 rounded-[32px] ${w.bg} border border-white shadow-sm flex flex-col items-center text-center gap-2`}>
+            <w.icon size={24} className={w.color} />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{w.label}</span>
+            <span className="text-2xl font-black text-slate-900">×{w.value}đ</span>
+          </div>
+        ))}
+      </motion.div>
+
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -45,7 +68,7 @@ const LogicVisualizer = ({ analysis }) => {
             >
               <div className="p-12 bg-slate-950 rounded-[40px] text-indigo-400 font-mono text-sm relative border-8 border-slate-900 shadow-inner overflow-x-auto">
                 <div className="absolute top-8 right-10 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
-                  Logic-Core v.2.4.0
+                  Logic-Core v.2.5.0
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
                   <div className="space-y-8">
@@ -108,8 +131,8 @@ const LogicVisualizer = ({ analysis }) => {
                   <th className="py-8 px-10 font-black text-slate-400 uppercase text-[11px] tracking-widest">
                     Mạng lưới đóng góp
                   </th>
-                  <th className="py-8 px-10 font-black text-slate-400 uppercase text-[11px] tracking-widest">
-                    AI Status
+                  <th className="py-8 px-10 font-black text-slate-400 uppercase text-[11px] tracking-widest text-right">
+                    Thao tác
                   </th>
                 </tr>
               </thead>
@@ -152,18 +175,20 @@ const LogicVisualizer = ({ analysis }) => {
                             key={i}
                             whileHover={{ y: -8, zIndex: 50, scale: 1.1 }}
                             className="w-12 h-12 rounded-full bg-white border-2 border-slate-50 shadow-soft flex items-center justify-center text-[12px] font-black text-slate-700 transition-all hover:border-indigo-200"
-                            title={`${c.username}: đóng góp ${(c.contribution * 100).toFixed(1)}%`}
+                            title={`${c.username}: đóng góp ${c.contribution.toFixed(2)}đ`}
                           >
                             {c.username.charAt(0).toUpperCase()}
                           </motion.div>
                         ))}
                       </div>
                     </td>
-                    <td className="py-10 px-10">
-                      <div className="inline-flex items-center gap-3 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl border border-emerald-100 font-black text-[10px] uppercase tracking-widest shadow-sm">
-                        <CheckCircle2 size={18} />
-                        Verified
-                      </div>
+                    <td className="py-10 px-10 text-right">
+                      <button 
+                        onClick={() => setSelectedTrace(rec)}
+                        className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-indigo-600 transition-colors shadow-lg active:scale-95"
+                      >
+                        <Info size={18} />
+                      </button>
                     </td>
                   </motion.tr>
                 ))}
@@ -172,6 +197,102 @@ const LogicVisualizer = ({ analysis }) => {
           </div>
         </div>
       </motion.div>
+
+      {/* Logic Trace Modal */}
+      <AnimatePresence>
+        {selectedTrace && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedTrace(null)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white rounded-[48px] shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]"
+            >
+              <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">Bóc tách logic suy luận</h4>
+                  <h3 className="text-3xl font-black text-slate-900 uppercase italic tracking-tight">{selectedTrace.title}</h3>
+                </div>
+                <button 
+                  onClick={() => setSelectedTrace(null)}
+                  className="w-14 h-14 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-soft"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-10 overflow-y-auto space-y-10 custom-scrollbar">
+                {/* Math Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="p-8 bg-slate-50 rounded-[32px] space-y-3 border border-slate-100 text-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Trung bình của bạn (μ_u)</span>
+                    <span className="text-3xl font-black text-slate-900">{(analysis.userMeans[analysis.user.id] || 0).toFixed(2)}đ</span>
+                  </div>
+                  <div className="p-8 bg-indigo-50 rounded-[32px] space-y-3 border border-indigo-100 flex flex-col items-center justify-center relative text-center">
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">Tổng đóng góp hàng xóm</span>
+                    <span className="text-3xl font-black text-indigo-600">+{(selectedTrace.score - (analysis.userMeans[analysis.user.id] || 0)).toFixed(2)}đ</span>
+                    <Calculator size={48} className="absolute -bottom-4 -right-4 opacity-5 text-indigo-600" />
+                  </div>
+                  <div className="p-8 bg-slate-900 rounded-[32px] space-y-3 border border-slate-800 shadow-xl shadow-slate-900/20 text-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block text-indigo-300">Điểm dự báo cuối cùng</span>
+                    <span className="text-3xl font-black text-white">{selectedTrace.score.toFixed(2)}đ</span>
+                  </div>
+                </div>
+
+                {/* Contributors Table */}
+                <div className="space-y-6">
+                  <h5 className="font-black text-slate-900 uppercase tracking-widest text-xs flex items-center gap-3">
+                    <Users size={16} className="text-indigo-600" />
+                    Mạng lưới tính toán (Neighbors Impact)
+                  </h5>
+                  <div className="overflow-hidden rounded-[32px] border border-slate-100">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                          <th className="py-5 px-8 text-left font-black text-slate-400 uppercase text-[9px] tracking-widest">Hàng xóm</th>
+                          <th className="py-5 px-8 text-left font-black text-slate-400 uppercase text-[9px] tracking-widest">Độ tương đồng</th>
+                          <th className="py-5 px-8 text-left font-black text-slate-400 uppercase text-[9px] tracking-widest">Điểm chuẩn hóa</th>
+                          <th className="py-5 px-8 text-right font-black text-slate-400 uppercase text-[9px] tracking-widest">Đóng góp thực tế</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 font-bold text-slate-700">
+                        {selectedTrace.contributors.map((c, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="py-5 px-8 text-slate-900">{c.username}</td>
+                            <td className="py-5 px-8 text-indigo-600">{(c.similarity * 100).toFixed(1)}%</td>
+                            <td className="py-5 px-8">{c.adjustedRating > 0 ? "+" : ""}{c.adjustedRating.toFixed(2)}đ</td>
+                            <td className="py-5 px-8 text-right font-black text-slate-900">{c.contribution > 0 ? "+" : ""}{c.contribution.toFixed(2)}đ</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-emerald-50 rounded-[32px] border border-emerald-100 flex items-start gap-5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-black text-emerald-900 uppercase text-[10px] tracking-widest">Kết luận AI</p>
+                    <p className="text-emerald-700/80 text-xs font-bold leading-relaxed">
+                      Món ăn này nhận được sự ủng hộ mạnh mẽ từ các "hàng xóm" có khẩu vị tương đồng nhất với bạn. 
+                      Điểm đóng góp dương từ mạng lưới chứng minh đây là một lựa chọn tiềm năng dựa trên lịch sử yêu thích của cộng đồng.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

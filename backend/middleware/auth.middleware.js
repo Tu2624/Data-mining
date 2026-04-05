@@ -19,4 +19,17 @@ const adminOnly = (req, res, next) => {
     next();
 };
 
-module.exports = { authMiddleware, adminOnly };
+const optionalAuthMiddleware = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) return next();
+
+    jwt.verify(token.split(' ')[1], process.env.JWT_SECRET, (err, decoded) => {
+        if (!err && decoded) {
+            req.userId = decoded.id;
+            req.userRole = decoded.role;
+        }
+        next();
+    });
+};
+
+module.exports = { authMiddleware, adminOnly, optionalAuthMiddleware };
