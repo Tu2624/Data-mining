@@ -76,18 +76,12 @@ class PostsController {
         `
                 SELECT p.*, m.url as image_url, c.name as category_name, 
                        u.username as author_name, u.avatar_url as author_avatar,
-              COALESCE((SELECT AVG(score) FROM ratings WHERE post_id = p.id), 0) as avg_rating,
-              (SELECT COUNT(*) FROM ratings WHERE post_id = p.id) as rating_count,
+                       COALESCE((SELECT AVG(score) FROM ratings WHERE post_id = p.id), 0) as avg_rating,
+                       (SELECT COUNT(*) FROM ratings WHERE post_id = p.id) as rating_count,
                        EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
                        EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
                        COALESCE((SELECT score FROM ratings WHERE user_id = ? AND post_id = p.id LIMIT 1), 0) as user_rating,
                        EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
-                       EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author,
-                       EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
-                       EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
-                       (SELECT score FROM ratings WHERE user_id = ? AND post_id = p.id LIMIT 1) as user_rating,
-                       (SELECT COALESCE(AVG(score), 0) FROM ratings WHERE post_id = p.id) as avg_rating,
-                       (SELECT COUNT(score) FROM ratings WHERE post_id = p.id) as rating_count
                 FROM posts p
                 LEFT JOIN media m ON p.id = m.post_id
                 LEFT JOIN categories c ON p.category_id = c.id
