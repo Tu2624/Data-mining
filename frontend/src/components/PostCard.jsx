@@ -9,6 +9,7 @@ import {
   Sparkles,
   UserPlus,
   UserMinus,
+  Bookmark,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -18,17 +19,25 @@ import HashtagText from "./HashtagText";
 
 const PostCard = ({ post, onUpdate }) => {
   const { user } = useStore();
-  const [isLiked, setIsLiked] = useState(
-    Boolean(post.is_liked || post.is_favorited),
-  );
+  const [isLiked, setIsLiked] = useState(Boolean(post.is_liked));
+  const [isFavorited, setIsFavorited] = useState(Boolean(post.is_favorited));
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
+  const [favoriteCount, setFavoriteCount] = useState(post.favorite_count || 0);
   const [following, setFollowing] = useState(post.is_following_author);
 
   useEffect(() => {
-    setIsLiked(Boolean(post.is_liked || post.is_favorited));
+    setIsLiked(Boolean(post.is_liked));
+    setIsFavorited(Boolean(post.is_favorited));
     setLikeCount(Number(post.like_count || 0));
+    setFavoriteCount(Number(post.favorite_count || 0));
     setFollowing(Boolean(post.is_following_author));
-  }, [post.is_liked, post.is_favorited, post.like_count, post.is_following_author]);
+  }, [
+    post.is_liked,
+    post.is_favorited,
+    post.like_count,
+    post.favorite_count,
+    post.is_following_author,
+  ]);
 
   const handleFollowToggle = async (e) => {
     e.preventDefault();
@@ -54,6 +63,20 @@ const PostCard = ({ post, onUpdate }) => {
       await client.post("/interact", { postId: post.id, action: "like" });
       setIsLiked(!isLiked);
       setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleFavorite = async (e) => {
+    e.preventDefault();
+    if (!user) return alert("Vui lòng đăng nhập để yêu thích món ăn!");
+
+    try {
+      await client.post("/interact", { postId: post.id, action: "favorite" });
+      setIsFavorited(!isFavorited);
+      setFavoriteCount((prev) => (isFavorited ? prev - 1 : prev + 1));
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error(error);
@@ -216,43 +239,53 @@ const PostCard = ({ post, onUpdate }) => {
       </Link>
 
       {/* Footer - Tương tác */}
-      <div className="px-6 py-5 bg-white flex items-center justify-between border-t border-slate-50">
-        <div className="flex items-center gap-2">
+      <div className="px-6 py-5 bg-white border-t border-slate-50">
+        <div className="grid grid-cols-2 gap-2 w-full">
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleLike}
-            className={`flex items-center gap-2.5 px-6 py-3 rounded-[24px] transition-all duration-300 font-black text-[11px] uppercase tracking-widest
+            className={`w-full min-w-0 flex items-center justify-center gap-2 px-3 py-3 rounded-[20px] transition-all duration-300 font-black text-[10px] uppercase tracking-[0.12em]
               ${isLiked ? "text-rose-500 bg-rose-50 shadow-inner" : "text-slate-400 hover:text-slate-900 bg-slate-50/50 hover:bg-slate-100/50"}`}
           >
-            <Heart size={18} className={isLiked ? "fill-rose-500" : ""} />
-            {likeCount > 0 && <span>{likeCount}</span>}
-            <span className="hidden sm:inline">
-              {isLiked ? "Đã thích" : "Thích"}
-            </span>
+            <Heart size={16} className={isLiked ? "fill-rose-500 shrink-0" : "shrink-0"} />
+            {likeCount > 0 && <span className="shrink-0">{likeCount}</span>}
+            <span className="truncate">{isLiked ? "Đã thích" : "Thích"}</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleFavorite}
+            className={`w-full min-w-0 flex items-center justify-center gap-2 px-3 py-3 rounded-[20px] transition-all duration-300 font-black text-[10px] uppercase tracking-[0.12em]
+              ${isFavorited ? "text-amber-500 bg-amber-50 shadow-inner" : "text-slate-400 hover:text-slate-900 bg-slate-50/50 hover:bg-slate-100/50"}`}
+          >
+            <Bookmark size={16} className={isFavorited ? "fill-amber-500 shrink-0" : "shrink-0"} />
+            {favoriteCount > 0 && <span className="shrink-0">{favoriteCount}</span>}
+            <span className="truncate">{isFavorited ? "Đã yêu thích" : "Yêu thích"}</span>
           </motion.button>
 
           <Link
             to={`/post/${post.id}`}
-            className="flex items-center gap-2.5 px-6 py-3 rounded-[24px] bg-slate-50/50 hover:bg-slate-100/50 transition-all text-slate-400 hover:text-slate-900 font-black text-[11px] uppercase tracking-widest no-underline"
+            className="w-full min-w-0 flex items-center justify-center gap-2 px-3 py-3 rounded-[20px] bg-slate-50/50 hover:bg-slate-100/50 transition-all text-slate-400 hover:text-slate-900 font-black text-[10px] uppercase tracking-[0.12em] no-underline"
           >
-            <MessageCircle size={18} />
-            {post.comment_count > 0 && <span>{post.comment_count}</span>}
-            <span className="hidden sm:inline">Phản hồi</span>
+            <MessageCircle size={16} className="shrink-0" />
+            {post.comment_count > 0 && <span className="shrink-0">{post.comment_count}</span>}
+            <span className="truncate">Phản hồi</span>
           </Link>
-        </div>
 
-        <motion.button
-          whileHover={{ x: 5 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleShare}
-          className="flex items-center gap-2.5 px-6 py-3 rounded-[24px] bg-indigo-50/30 hover:bg-indigo-600 text-indigo-600 hover:text-white transition-all font-black text-[11px] uppercase tracking-widest shadow-soft hover:shadow-lg hover:shadow-indigo-500/20"
-        >
-          <Share2 size={18} />
-          <span className="hidden sm:inline">
-            {post.share_count > 0 ? post.share_count : "Chia sẻ"}
-          </span>
-        </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleShare}
+            className="w-full min-w-0 flex items-center justify-center gap-2 px-3 py-3 rounded-[20px] bg-indigo-50/30 hover:bg-indigo-600 text-indigo-600 hover:text-white transition-all font-black text-[10px] uppercase tracking-[0.12em] shadow-soft hover:shadow-lg hover:shadow-indigo-500/20"
+          >
+            <Share2 size={16} className="shrink-0" />
+            <span className="truncate">
+              {post.share_count > 0 ? `${post.share_count} chia sẻ` : "Chia sẻ"}
+            </span>
+          </motion.button>
+        </div>
       </div>
     </motion.div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -15,6 +15,10 @@ import {
   Mail,
   Sparkles,
   LogOut,
+  Camera,
+  Edit2,
+  X,
+  Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import client from "../api/client";
@@ -23,9 +27,10 @@ import PostCard from "../components/PostCard";
 import { PostCardSkeleton } from "../components/Skeleton";
 
 const Profile = () => {
-  const { user, logout } = useStore();
+  const { user, logout, updateUserAvatar, updateUserUsername } = useStore();
   const { id } = useParams();
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [profileUser, setProfileUser] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [history, setHistory] = useState([]);
@@ -36,6 +41,9 @@ const Profile = () => {
   const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0 });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("posts");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
 
   const isOwnProfile = !id || parseInt(id) === user?.id;
 
@@ -99,6 +107,56 @@ const Profile = () => {
       setIsFollowing(!isFollowing);
     } catch (error) {
       console.error("Follow toggle failed:", error);
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const dataUrl = event.target?.result;
+        if (!dataUrl) return;
+
+        try {
+          const res = await client.put("/auth/avatar", { avatarUrl: dataUrl });
+          setProfileUser((prev) =>
+            prev ? { ...prev, avatar_url: res.data.avatarUrl } : null
+          );
+          // Cập nhật Zustand store
+          updateUserAvatar(res.data.avatarUrl);
+          alert("Avatar cập nhật thành công!");
+        } catch (error) {
+          console.error("Upload avatar failed:", error);
+          alert("Lỗi khi cập nhật avatar");
+        } finally {
+          setUploadingAvatar(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error(error);
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleUpdateUsername = async () => {
+    if (!newUsername.trim()) return alert("Username không thể trống!");
+    if (newUsername.trim().length < 3) return alert("Username phải từ 3 ký tự trở lên!");
+
+    try {
+      const res = await client.put("/auth/username", { username: newUsername.trim() });
+      setProfileUser((prev) => (prev ? { ...prev, username: res.data.username } : null));
+      updateUserUsername(res.data.username);
+      setEditingUsername(false);
+      setNewUsername("");
+      alert("Username cập nhật thành công!");
+    } catch (error) {
+      console.error("Update username failed:", error);
+      alert(error.response?.data?.error || "Lỗi khi cập nhật username");
     }
   };
 
@@ -170,6 +228,31 @@ const Profile = () => {
                 )}
               </div>
             </div>
+
+            {/* Upload Avatar Button - Only on own profile */}
+            {isOwnProfile && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                  disabled={uploadingAvatar}
+                />
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute top-4 right-4 p-3 bg-indigo-600 text-white rounded-[16px] shadow-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  title="Thay đổi avatar"
+                >
+                  <Camera size={18} />
+                </motion.button>
+              </>
+            )}
+
             <div className="absolute bottom-6 right-6 w-10 h-10 bg-emerald-500 border-4 border-white rounded-[18px] shadow-lg animate-pulse"></div>
           </motion.div>
 
@@ -181,10 +264,73 @@ const Profile = () => {
                 animate={{ y: 0, opacity: 1 }}
                 className="flex items-center gap-4 justify-center md:justify-start"
               >
-                <h1 className="text-4xl md:text-6xl font-black text-blue-900 tracking-tighter leading-none">
-                  {profileUser?.username || "..."}
-                </h1>
-                {profileUser?.role === "admin" && (
+                {editingUsername ? (
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder={profileUser?.username}
+                      className="px-4 py-2 rounded-xl border-2 border-indigo-600 bg-white text-slate-900 font-black text-lg focus:outline-none"
+                      autoFocus
+                    />
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handleUpdateUsername}
+                      className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                      title="Lưu"
+                    >
+                      <Check size={18} />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        setEditingUsername(false);
+                        setNewUsername("");
+                      }}
+                      className="p-2 bg-slate-400 text-white rounded-lg hover:bg-slate-500 transition-colors"
+                      title="Hủy"
+                    >
+                      <X size={18} />
+                    </motion.button>
+                  </div>
+                ) : (
+                  <>
+                    <h1
+                      className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none drop-shadow-lg"
+                      style={{
+                        WebkitTextStroke: "0.5px #000",
+                      }}
+                    >
+                      {profileUser?.username || "..."}
+                    </h1>
+                    {isOwnProfile && (
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => {
+                          setEditingUsername(true);
+                          setNewUsername(profileUser?.username || "");
+                        }}
+                        className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        title="Sửa username"
+                      >
+                        <Edit2 size={18} />
+                      </motion.button>
+                    )}
+                  </>
+                )}
+              </motion.div>
+
+              {!editingUsername && profileUser?.role === "admin" && (
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex items-center gap-2"
+                >
                   <div
                     className="p-2 bg-indigo-50 text-indigo-600 rounded-xl shadow-soft border border-indigo-100"
                     title="Core Admin"
@@ -195,8 +341,8 @@ const Profile = () => {
                       fillOpacity={0.2}
                     />
                   </div>
-                )}
-              </motion.div>
+                </motion.div>
+              )}
 
               <motion.div
                 initial={{ y: 20, opacity: 0 }}

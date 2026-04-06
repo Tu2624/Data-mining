@@ -31,22 +31,7 @@ const Home = () => {
       const query = params.get("q") || "";
       const res = await client.get(`/posts?q=${query}`);
 
-      let mergedPosts = res.data;
-      if (user) {
-        const favoritesRes = await client.get("/favorites");
-        const favoriteIds = new Set((favoritesRes.data || []).map((item) => item.id));
-
-        mergedPosts = (res.data || []).map((post) => {
-          const isFavorited = favoriteIds.has(post.id);
-          return {
-            ...post,
-            is_favorited: isFavorited,
-            is_liked: Boolean(post.is_liked || isFavorited),
-          };
-        });
-      }
-
-      setPosts(mergedPosts);
+      setPosts(res.data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -129,14 +114,11 @@ const Home = () => {
             <button className="px-10 py-5 bg-indigo-600 text-white rounded-[24px] font-black text-xs uppercase tracking-widest hover:shadow-2xl hover:shadow-indigo-500/40 transition-all active:scale-95">
               Khám phá ngay
             </button>
-            <button className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-[24px] font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all">
-              Học máy & AI
-            </button>
           </div>
         </div>
       </motion.div>
 
-      <div className="sticky top-28 z-50 mb-12 flex flex-col md:flex-row items-center justify-between gap-6 glass-premium p-4 md:p-5 rounded-[32px] shadow-premium">
+      <div className=" z-50 mb-12 flex flex-col md:flex-row items-center justify-between gap-6 glass-premium p-4 md:p-5 rounded-[32px] shadow-premium">
         <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar w-full md:w-auto whitespace-nowrap">
           {["Tất cả", "Gợi ý AI", "Thịnh hành", "Gần đây"].map((tab) => (
             <button
@@ -148,18 +130,6 @@ const Home = () => {
               {tab}
             </button>
           ))}
-        </div>
-
-        <div className="relative group w-full md:w-80">
-          <Search
-            className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"
-            size={20}
-          />
-          <input
-            type="text"
-            placeholder="Tìm kiếm cảm hứng..."
-            className="w-full bg-slate-50 border-none rounded-[24px] pl-14 pr-6 py-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-4 ring-indigo-50 transition-all outline-none"
-          />
         </div>
       </div>
 

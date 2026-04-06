@@ -138,13 +138,13 @@ const InteractionSection = ({
             size={22}
             className={liked ? "fill-rose-500 group-hover:fill-current" : ""}
           />
-          {liked ? "Đã yêu thích" : "Lưu món này"}
+          {liked ? "Đã thích" : "Thích"}
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.05, rotate: 10 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => handleInteract("favorite")}
-          className={`p-6 rounded-[32px] shadow-2xl transition-all duration-300
+          className={`px-6 py-6 rounded-[32px] shadow-2xl transition-all duration-300 flex items-center gap-3 font-black text-[11px] uppercase tracking-widest
                         ${
                           favorited
                             ? "bg-rose-500 text-white shadow-rose-500/30"
@@ -152,6 +152,7 @@ const InteractionSection = ({
                         }`}
         >
           <BookmarkPlus size={26} />
+          {favorited ? "Đã yêu thích" : "Yêu thích"}
         </motion.button>
       </div>
 

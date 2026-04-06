@@ -12,19 +12,21 @@ class PostsController {
                     p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
                     MIN(m.url) as image_url, 
                     MIN(c.name) as category_name, 
-                    COALESCE(AVG(r.score), 0) as avg_rating,
-                    COUNT(r.score) as rating_count,
+              COALESCE((SELECT AVG(score) FROM ratings WHERE post_id = p.id), 0) as avg_rating,
+              (SELECT COUNT(*) FROM ratings WHERE post_id = p.id) as rating_count,
+              (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
+              (SELECT COUNT(*) FROM favorites WHERE post_id = p.id) as favorite_count,
                     u.username, u.avatar_url,
-                    IF(f.id IS NOT NULL, TRUE, FALSE) as is_following_author
+              EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
+              EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
+              EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
                 FROM posts p
                     LEFT JOIN media m ON p.id = m.post_id
                     LEFT JOIN categories c ON p.category_id = c.id
-                    LEFT JOIN ratings r ON p.id = r.post_id
                     LEFT JOIN users u ON p.user_id = u.id
-                    LEFT JOIN follows f ON (f.follower_id = ? AND f.following_id = p.user_id)
                 WHERE 1=1
             `;
-      const params = [req.userId || 0];
+        const params = [req.userId || 0, req.userId || 0, req.userId || 0];
 
 
       if (categoryId) {
@@ -74,6 +76,11 @@ class PostsController {
         `
                 SELECT p.*, m.url as image_url, c.name as category_name, 
                        u.username as author_name, u.avatar_url as author_avatar,
+              COALESCE((SELECT AVG(score) FROM ratings WHERE post_id = p.id), 0) as avg_rating,
+              (SELECT COUNT(*) FROM ratings WHERE post_id = p.id) as rating_count,
+                       EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
+                       EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
+                       COALESCE((SELECT score FROM ratings WHERE user_id = ? AND post_id = p.id LIMIT 1), 0) as user_rating,
                        EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
                 FROM posts p
                 LEFT JOIN media m ON p.id = m.post_id
@@ -81,7 +88,7 @@ class PostsController {
                 LEFT JOIN users u ON p.user_id = u.id
                 WHERE p.id = ?
             `,
-        [userId || 0, postId],
+        [userId || 0, userId || 0, userId || 0, userId || 0, postId],
       );
 
 
@@ -159,17 +166,9 @@ class PostsController {
             "DELETE FROM likes WHERE user_id = ? AND post_id = ?",
             [userId, postId],
           );
-          await pool.query(
-            "DELETE FROM favorites WHERE user_id = ? AND post_id = ?",
-            [userId, postId],
-          ); // Xóa khỏi favorites
         } else {
           await pool.query(
             "INSERT IGNORE INTO likes (user_id, post_id) VALUES (?, ?)",
-            [userId, postId],
-          );
-          await pool.query(
-            "INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)",
             [userId, postId],
           );
         }
@@ -226,15 +225,29 @@ class PostsController {
     try {
       const [history] = await pool.query(
         `
-                SELECT p.*, m.url as image_url, v.viewed_at
+                SELECT p.id, p.user_id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
+                       u.username, u.avatar_url,
+                       c.name as category_name,
+                       COALESCE((SELECT MIN(url) FROM media WHERE post_id = p.id), NULL) as image_url,
+                       COALESCE((SELECT AVG(score) FROM ratings WHERE post_id = p.id), 0) as avg_rating,
+                       (SELECT COUNT(*) FROM ratings WHERE post_id = p.id) as rating_count,
+                       (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
+                       (SELECT COUNT(*) FROM favorites WHERE post_id = p.id) as favorite_count,
+                       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
+                       (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
+                       EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
+                       EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
+                       EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author,
+                       v.viewed_at
                 FROM views v
                 JOIN posts p ON v.post_id = p.id
-                LEFT JOIN media m ON p.id = m.post_id
+                LEFT JOIN users u ON p.user_id = u.id
+                LEFT JOIN categories c ON p.category_id = c.id
                 WHERE v.user_id = ?
                 ORDER BY v.viewed_at DESC
                 LIMIT 20
             `,
-        [userId],
+        [userId, userId, userId, userId],
       );
       res.json(history);
     } catch (error) {
@@ -265,20 +278,29 @@ class PostsController {
     try {
       const [favorites] = await pool.query(
         `
-                SELECT p.id, p.title, p.description, p.price, p.location, p.created_at,
+                SELECT p.id, p.user_id, p.title, p.description, p.price, p.location, p.created_at, p.category_id,
+                       u.username, u.avatar_url,
                        MIN(m.url) as image_url,
                        MIN(c.name) as category_name,
-                       COALESCE(AVG(r.score), 0) as avg_rating
+                       COALESCE((SELECT AVG(score) FROM ratings WHERE post_id = p.id), 0) as avg_rating,
+                       (SELECT COUNT(*) FROM ratings WHERE post_id = p.id) as rating_count,
+                       (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count,
+                       (SELECT COUNT(*) FROM favorites WHERE post_id = p.id) as favorite_count,
+                       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count,
+                       (SELECT COUNT(*) FROM shares WHERE post_id = p.id) as share_count,
+                       EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
+                       EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
+                       EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
                 FROM favorites f
                 JOIN posts p ON f.post_id = p.id
                 LEFT JOIN media m ON p.id = m.post_id
                 LEFT JOIN categories c ON p.category_id = c.id
-                LEFT JOIN ratings r ON p.id = r.post_id
+                LEFT JOIN users u ON p.user_id = u.id
                 WHERE f.user_id = ?
                 GROUP BY p.id
                 ORDER BY f.created_at DESC
             `,
-        [userId],
+        [userId, userId, userId, userId],
       );
       res.json(favorites);
     } catch (error) {

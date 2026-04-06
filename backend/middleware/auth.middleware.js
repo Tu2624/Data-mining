@@ -12,6 +12,22 @@ const authMiddleware = (req, res, next) => {
     });
 };
 
+const optionalAuth = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) return next();
+
+    const parts = token.split(' ');
+    if (parts.length < 2) return next();
+
+    jwt.verify(parts[1], process.env.JWT_SECRET, (err, decoded) => {
+        if (!err && decoded) {
+            req.userId = decoded.id;
+            req.userRole = decoded.role;
+        }
+        next();
+    });
+};
+
 const adminOnly = (req, res, next) => {
     if (req.userRole !== 'admin') {
         return res.status(403).json({ error: 'Requires Admin role' });
@@ -19,4 +35,4 @@ const adminOnly = (req, res, next) => {
     next();
 };
 
-module.exports = { authMiddleware, adminOnly };
+module.exports = { authMiddleware, optionalAuth, adminOnly };

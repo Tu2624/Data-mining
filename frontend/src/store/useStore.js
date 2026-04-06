@@ -11,6 +11,20 @@ const useStore = create((set) => ({
     set({ user, token });
   },
 
+  updateUserAvatar: (avatarUrl) =>
+    set((state) => {
+      const updatedUser = { ...state.user, avatar_url: avatarUrl };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      return { user: updatedUser };
+    }),
+
+  updateUserUsername: (username) =>
+    set((state) => {
+      const updatedUser = { ...state.user, username };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      return { user: updatedUser };
+    }),
+
   logout: () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");

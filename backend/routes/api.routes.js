@@ -3,18 +3,24 @@ const AuthController = require("../controllers/auth.controller");
 const PostsController = require("../controllers/posts.controller");
 const SocialController = require("../controllers/social.controller");
 const AdminController = require("../controllers/admin.controller");
-const { authMiddleware, adminOnly } = require("../middleware/auth.middleware");
+const {
+  authMiddleware,
+  optionalAuth,
+  adminOnly,
+} = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
 // Auth Routes
 router.post("/auth/register", AuthController.register);
 router.post("/auth/login", AuthController.login);
+router.put("/auth/avatar", authMiddleware, AuthController.updateAvatar);
+router.put("/auth/username", authMiddleware, AuthController.updateUsername);
 
 // Posts Routes
-router.get("/posts", PostsController.getAll);
+router.get("/posts", optionalAuth, PostsController.getAll);
 router.get("/posts/feed", authMiddleware, PostsController.getFeed);
-router.get("/posts/:id", PostsController.getDetail);
+router.get("/posts/:id", optionalAuth, PostsController.getDetail);
 router.post("/posts", authMiddleware, PostsController.createPost); // Cho phép User tạo bài
 router.post("/interact", authMiddleware, PostsController.interact);
 router.get(
