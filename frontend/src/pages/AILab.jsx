@@ -146,7 +146,7 @@ const AILab = () => {
             {activeTab === "logic" && <LogicVisualizer analysis={analysis} />}
 
             {/* Tab 3: Simulator (Playground) */}
-            {activeTab === "simulator" && <SimulatorVisualizer />}
+            {activeTab === "simulator" && <SimulatorVisualizer analysis={analysis} />}
           </motion.div>
         </AnimatePresence>
       )}

@@ -3,11 +3,7 @@ const AuthController = require("../controllers/auth.controller");
 const PostsController = require("../controllers/posts.controller");
 const SocialController = require("../controllers/social.controller");
 const AdminController = require("../controllers/admin.controller");
-const {
-  authMiddleware,
-  optionalAuth,
-  adminOnly,
-} = require("../middleware/auth.middleware");
+const { authMiddleware, adminOnly, optionalAuthMiddleware } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -18,9 +14,9 @@ router.put("/auth/avatar", authMiddleware, AuthController.updateAvatar);
 router.put("/auth/username", authMiddleware, AuthController.updateUsername);
 
 // Posts Routes
-router.get("/posts", optionalAuth, PostsController.getAll);
+router.get("/posts", optionalAuthMiddleware, PostsController.getAll);
 router.get("/posts/feed", authMiddleware, PostsController.getFeed);
-router.get("/posts/:id", optionalAuth, PostsController.getDetail);
+router.get("/posts/:id", optionalAuthMiddleware, PostsController.getDetail);
 router.post("/posts", authMiddleware, PostsController.createPost); // Cho phép User tạo bài
 router.post("/interact", authMiddleware, PostsController.interact);
 router.get(
@@ -76,6 +72,8 @@ router.get(
   authMiddleware,
   PostsController.getAIAnalysis,
 );
+router.post("/ai/simulate", authMiddleware, PostsController.simulateAI);
+router.post("/ai/update-config", authMiddleware, adminOnly, PostsController.updateAIConfig);
 
 // Admin Routes (Giữ lại cho các tác vụ quản trị khác nếu cần)
 router.post(

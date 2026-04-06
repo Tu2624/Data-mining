@@ -2,11 +2,34 @@ const pool = require('../config/db');
 
 class RecommendationService {
     /**
+     * Lấy trọng số từ Database
+     */
+    static async getWeights() {
+        try {
+            const [rows] = await pool.query('SELECT `key`, value FROM system_configs');
+            const weights = {};
+            rows.forEach(row => {
+                weights[row.key] = row.value;
+            });
+            return {
+                rating: weights.weight_rating || 1.0,
+                favorite: weights.weight_favorite || 3.0,
+                like: weights.weight_like || 2.0,
+                view: weights.weight_view || 1.0
+            };
+        } catch (error) {
+            console.error('Error fetching weights:', error);
+            return { rating: 1, favorite: 3, like: 2, view: 1 };
+        }
+    }
+
+    /**
      * Thuật toán Collaborative Filtering (Mean-Centered Cosine Similarity)
      */
     static async getCollaborativeRecommendations(userId, limit = 10, targetMatrix = null) {
         try {
-            const matrix = targetMatrix || await this.getInteractionMatrix();
+            const weights = await this.getWeights();
+            const matrix = targetMatrix || await this.getInteractionMatrix(weights);
             if (!matrix[userId]) return [];
 
             const userMeans = this.calculateUserMeans(matrix);
@@ -48,9 +71,9 @@ class RecommendationService {
             for (const postId in predictions) {
                 if (simSum[postId] > 0) {
                     const predictedRating = userMeans[userId] + (predictions[postId] / simSum[postId]);
-                    finalRecs.push({ 
-                        postId: parseInt(postId), 
-                        score: parseFloat(predictedRating.toFixed(2)) 
+                    finalRecs.push({
+                        postId: parseInt(postId),
+                        score: parseFloat(predictedRating.toFixed(2))
                     });
                 }
             }
@@ -65,15 +88,15 @@ class RecommendationService {
     /**
      * PHÂN TÍCH CHI TIẾT (Cho AI LAB 2.0)
      */
-    static async getComprehensiveAnalysis(userId) {
+    static async getComprehensiveAnalysis(userId, customWeights = null) {
         try {
-            const matrix = await this.getInteractionMatrix();
+            const weights = customWeights || await this.getWeights();
+            const matrix = await this.getInteractionMatrix(weights);
             if (!matrix[userId]) {
-                // FALLBACK: Nếu User chưa có tương tác nào
                 const [users] = await pool.query('SELECT id, username FROM users WHERE id = ?', [userId]);
                 return {
                     user: users[0] || { id: userId, username: 'User' },
-                    matrix: matrix,
+                    weights,
                     userMeans: {},
                     similarities: [],
                     neighbors: [],
@@ -94,10 +117,10 @@ class RecommendationService {
                 if (parseInt(otherId) === userId) continue;
                 const sim = this.cosineSimilarity(adjustedMatrix[userId], adjustedMatrix[otherId]);
                 if (sim > 0.01) {
-                    similarities.push({ 
-                        userId: parseInt(otherId), 
+                    similarities.push({
+                        userId: parseInt(otherId),
                         username: userMap[otherId]?.username || `User ${otherId}`,
-                        score: parseFloat(sim.toFixed(4)) 
+                        score: parseFloat(sim.toFixed(4))
                     });
                 }
             }
@@ -110,7 +133,7 @@ class RecommendationService {
 
             return {
                 user: userMap[userId],
-                matrix: matrix,
+                weights,
                 userMeans,
                 similarities: similarities.slice(0, 10),
                 neighbors: similarities.slice(0, 5),
@@ -120,21 +143,24 @@ class RecommendationService {
                     score
                 })),
                 recommendations: recommendations.map(r => {
-                    // Tìm các contributors cho món ăn này
                     const contributors = [];
                     for (const otherId in matrix) {
                         const sim = this.cosineSimilarity(adjustedMatrix[userId], adjustedMatrix[otherId]);
                         if (sim > 0 && matrix[otherId][r.postId]) {
                             contributors.push({
+                                userId: otherId,
                                 username: userMap[otherId]?.username || `U${otherId}`,
-                                contribution: sim * (matrix[otherId][r.postId] - userMeans[otherId])
+                                similarity: parseFloat(sim.toFixed(4)),
+                                rawRating: matrix[otherId][r.postId],
+                                adjustedRating: parseFloat((matrix[otherId][r.postId] - userMeans[otherId]).toFixed(4)),
+                                contribution: parseFloat((sim * (matrix[otherId][r.postId] - userMeans[otherId])).toFixed(4))
                             });
                         }
                     }
                     return {
                         ...r,
                         title: postMap[r.postId]?.title || `Món ${r.postId}`,
-                        contributors: contributors.sort((a, b) => b.contribution - a.contribution).slice(0, 5)
+                        contributors: contributors.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution)).slice(0, 5)
                     };
                 }),
                 mae: parseFloat(mae.toFixed(4))
@@ -145,21 +171,22 @@ class RecommendationService {
         }
     }
 
-    static async getInteractionMatrix() {
+    static async getInteractionMatrix(customWeights = null) {
+        const weights = customWeights || await this.getWeights();
         const query = `
             SELECT user_id, post_id, MAX(score) as total_score
             FROM (
-                SELECT user_id, post_id, score FROM ratings
+                SELECT user_id, post_id, score * ? as score FROM ratings
                 UNION ALL
-                SELECT user_id, post_id, 3 as score FROM favorites
+                SELECT user_id, post_id, ? as score FROM favorites
                 UNION ALL
-                SELECT user_id, post_id, 2 as score FROM likes
+                SELECT user_id, post_id, ? as score FROM likes
                 UNION ALL
-                SELECT user_id, post_id, 1 as score FROM views
+                SELECT user_id, post_id, ? as score FROM views
             ) as interactions
             GROUP BY user_id, post_id
         `;
-        const [rows] = await pool.query(query);
+        const [rows] = await pool.query(query, [weights.rating, weights.favorite, weights.like, weights.view]);
         const matrix = {};
         rows.forEach(row => {
             if (!matrix[row.user_id]) matrix[row.user_id] = {};
@@ -244,7 +271,7 @@ class RecommendationService {
             const [postInfo] = await pool.query('SELECT category_id FROM posts WHERE id = ?', [postId]);
             if (!postInfo.length) return [];
             const categoryId = postInfo[0].category_id;
-            
+
             const query = `
                 SELECT p.id, p.title, p.description, p.price, p.location, p.category_id, p.created_at,
                        p.user_id, u.username, u.avatar_url,

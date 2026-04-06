@@ -82,6 +82,12 @@ class PostsController {
                        EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
                        COALESCE((SELECT score FROM ratings WHERE user_id = ? AND post_id = p.id LIMIT 1), 0) as user_rating,
                        EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author
+                       EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = p.user_id) as is_following_author,
+                       EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND post_id = p.id) as is_liked,
+                       EXISTS(SELECT 1 FROM favorites WHERE user_id = ? AND post_id = p.id) as is_favorited,
+                       (SELECT score FROM ratings WHERE user_id = ? AND post_id = p.id LIMIT 1) as user_rating,
+                       (SELECT COALESCE(AVG(score), 0) FROM ratings WHERE post_id = p.id) as avg_rating,
+                       (SELECT COUNT(score) FROM ratings WHERE post_id = p.id) as rating_count
                 FROM posts p
                 LEFT JOIN media m ON p.id = m.post_id
                 LEFT JOIN categories c ON p.category_id = c.id
@@ -626,6 +632,30 @@ class PostsController {
       res.json(analysis);
     } catch (error) {
       console.error("AI Analysis Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async simulateAI(req, res) {
+    const userId = req.userId;
+    const { weights } = req.body;
+    try {
+      const analysis = await RecommendationService.getComprehensiveAnalysis(userId, weights);
+      res.json(analysis);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async updateAIConfig(req, res) {
+    const { weights } = req.body;
+    try {
+      for (const [key, value] of Object.entries(weights)) {
+        const configKey = key.startsWith('weight_') ? key : `weight_${key}`;
+        await pool.query('UPDATE system_configs SET value = ? WHERE `key` = ?', [value, configKey]);
+      }
+      res.json({ message: "Cập nhật cấu hình thành công" });
+    } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
